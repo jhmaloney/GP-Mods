@@ -277,7 +277,7 @@ method normalStageSize Stage {
 }
 
 method loadExtension Stage {
-  pickFileToOpen (action 'loadExtensionFileNamed' this) (gpFolder)  (array '.gpp' '.gpe')
+  pickFileToOpen (action 'loadExtensionFileNamed' this) (userHomePath)  (array '.gpp' '.gpe')
 }
 
 method loadExtensionFileNamed Stage fName {
@@ -298,7 +298,7 @@ method loadExtensionFileNamed Stage fName {
 }
 
 method loadSourceFile Stage {
-  pickFileToOpen (action 'reloadSourceFileNamed' this) (gpFolder) '.gp'
+  pickFileToOpen (action 'reloadSourceFileNamed' this) (userHomePath) '.gp'
 }
 
 method reloadSourceFileNamed Stage fName {
