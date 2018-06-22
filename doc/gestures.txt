@@ -1,0 +1,124 @@
+UI Gestures as per August 2016
+
+
+I. general gestures
+
+right-click
+	context menu (if any)
+ctrl/cmd - left-click
+	same as right-click => context menu
+shift-right-click / shift-ctrl/cmd-left-click
+	meta-menu
+alt-click
+	edit scripts of sprite (if any)
+alt-shift-click
+	edit scripts of any morph (only in dev mode, use with extreme caution)
+touch-hold on numerical input slot
+	scrub
+space-click on a block in devMode
+	textify
+space-click on a scripting area in devMode
+	edit textual GP code
+
+
+II. custom block definition gestures
+
+left-click
+	toggle hide / show custom block definition details
+right-click or ctrl/cmd-left-click
+	definition context menu, specify the type of the custom block (command or reporter)
+
+
+III. keyboard navigation in ScriptEditor panes
+
+			Enabling
+			--------
+
+shift-click
+shift-enter
+	activate experimental keyboard navigation
+esc / left click on scripting pane background
+	deactivate
+
+
+
+			Navigating
+			----------
+
+Tabs
+------
+
+tab
+	top of next script
+backtab	
+	top of last script
+
+
+Arrows
+------
+
+right
+	next editable element in current script (block, input or drawer)
+left
+	editable element before current one
+down
+	next command block, bottom of last command block in script
+up
+	command block before current one
+
+
+Shift-
+------
+
+arrows
+	move the empty script focus or currently focused (edited) script
+	within the scripting area
+enter
+	move the cursor below the current script and start editing a new one
+
+
+			Running
+			-------
+Cmd/Ctrl-shift-enter
+	directly run/stop running the currently keyboard-focused script
+
+
+			Editing
+			-------
+
+Enter / Space
+-------------
+
+trigger
+	insert top option in a menu of block at current position
+	edit input slots
+	toggle Boolean slots
+	rename variable definitions
+	drop-down input-slot menus
+
+backspace
+	delete last command block
+	delete current reporter block
+	set BooleanSlot switch to “false”
+	collapse one variadic expansion level
+
+Any other key
+-------------
+
+search for a block whose spec fits into the current situation (hat, command or reporter) and matches the current search string. Pops up a menu with the 5 first possible matches, refreshes with each keystroke. <Enter> inserts the top block shown in the menu at the current position. <Esc> cancels the search.
+
+Editable Input Slots
+--------------------
+
+enter
+	accept and return to input focus (only in single-line slots)
+cmd/ctrl-s
+	accept and return to input focus (in all slots)
+esc
+	cancel input, restore previous contents, return to input focus
+cmd/ctr-z
+	ditto (cancel, undo input edit etc.)
+tab
+	directly focus next editable input slot and start editing
+backtab
+	directly focus previous editable input slot and start editing

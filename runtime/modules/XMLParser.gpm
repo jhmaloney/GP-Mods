@@ -1,0 +1,978 @@
+module 'XMLParser'
+
+moduleExports XMLParser
+
+defineClass XMLElement name attributes contents parent
+
+method initialize XMLElement n cont attr {
+  name = n
+  contents = cont
+  attributes = attr
+  return this
+}
+
+method name XMLElement {
+  return name
+}
+
+method contents XMLElement {
+  return contents
+}
+
+method isCharDataNode XMLElement {
+  return (and ((count contents) == 1) (isClass (at contents 1) 'String'))
+}
+
+method contentString XMLElement {
+  if (isCharDataNode this) {
+    return (at contents 1)
+  }
+  error 'content is expected to be a string'
+}
+
+method elementNamed XMLElement aName {
+  for c contents {
+    if ((containsSubString (toLowerCase (name c)) (toLowerCase aName)) > 0) {
+      return c
+    }
+  }
+  return nil
+}
+
+// expander
+method hasSubStringAt BinaryData target start {
+  count = (byteCount target)
+  if (or ((byteCount this) == 0) (count == 0)) {return false}
+  if (isNil start) {start = 1}
+  if (((start - 1) + count) > (byteCount this)) {return false}
+  for j count {
+    if (not ((byteAt this (+ start j -1)) == (byteAt target j))) {
+      return false
+    }
+  }
+  return true
+}
+
+defineClass XMLParser data c index
+
+method initialize XMLParser d {
+  if (isClass d 'String') {
+    data = (newBinaryData (byteCount d))
+    replaceByteRange data 1 (byteCount d) d
+  } (isClass d 'BinaryData') {
+    data = d
+  } else {
+    error 'wrond type'
+  }
+  index = 0
+  nextChar this
+  return this
+}
+
+method nextCodePointAt XMLParser {
+  index = (index + 1)
+  c1 = (byteAt data index)
+  if (c1 <= 127) {
+    return c1
+  }
+  index = (index + 1)
+  c2 = (byteAt data index)
+  if ((c1 & 224) == 192) {
+    return (((c1 & 31) << 6) + (c2 & 63))
+  }
+  index = (index + 1)
+  c3 = (byteAt data index)
+  if ((c1 & 240) == 224) {
+    return (+ ((c1 & 15) << 12) ((c2 & 63) << 6) (c3 & 63))
+  }
+  index = (index + 1)
+  c4 = (byteAt data index)
+  if ((c4 & 248) == 240) {
+    return (+ ((c1 & 7) << 18) ((c2 & 63) << 12) ((c3 & 63) << 6) (c4 & 63))
+  }
+}
+
+method nextChar XMLParser {
+  s = c
+  if (index == (byteCount data)) {
+    c = nil
+    return s
+  }
+  c = (nextCodePointAt this)
+  return s
+}
+
+method next XMLParser n {
+  index = (index + n)
+  c = (byteAt data index)
+}
+
+method hasNextString XMLParser n {
+  result = (hasSubStringAt data n index)
+  if result {
+    index = (index + (byteCount n))
+    c = (byteAt data index)
+    return true
+  }
+  return false
+}
+
+method isNextChar XMLParser code {
+  if (c == code) {
+    nextChar this
+    return code
+  }
+  return nil
+}
+
+method isNextOneOf XMLParser args... {
+  for a (argCount) {
+    if (c == (arg a)) {
+      nextChar this
+      return (arg a)
+    }
+  }
+  return nil
+}
+
+method resetTo XMLParser i {
+  index = i
+  c = (byteAt data index)
+  return nil
+}
+
+method getString XMLParser start end {
+  return (stringFromByteRange data start end)
+}
+
+// rules
+
+method s XMLParser {
+  if (not (or (c == 32) (c == 9) (c == 13) (c == 10))) {
+    return nil
+  }
+  while (or (c == 32) (c == 9) (c == 13) (c == 10)) {
+    s = c
+    nextChar this
+  }
+  return true
+}
+
+method nameStartChar XMLParser {
+  // name start char
+  // ":" | [A-Z] | "_" | [a-z] | [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] | [#x370-#x37D] | [#x37F-#x1FFF]
+  //  | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
+  if (or (c == 58)
+         (and (65 <= c) (c <= 90))
+         (c == 95)
+         (and (97 <= c) (c <= 122))
+         (and (192 <= c) (c <= 214))
+         (and (216 <= c) (c <= 246))
+         (and (248 <= c) (c <= 767))
+         (and (880 <= c) (c <= 893))
+         (and (895 <= c) (c <= 8191))
+         (and (8204 <= c) (c <= 8205))
+         (and (8304 <= c) (c <= 8591))
+         (and (11264 <= c) (c <= 12271))
+         (and (12289 <= c) (c <= 55295))
+         (and (63744 <= c) (c <= 64975))
+         (and (65008 <= c) (c <= 65533))
+         (and (65536 <= c) (c <= 983039))) {
+     return (nextChar this)
+  }
+  return nil
+}
+
+method nameChar XMLParser {
+  // NameStartChar | "-" | "." | [0-9] | #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
+  s = (nameStartChar this)
+  if (notNil s) {return s}
+  if (or (c == 45)
+         (c == 46)
+         (and (48 <= c) (c <= 57))
+         (c == 187)
+         (and (768 <= c) (c <= 879))
+         (and (8255 <= c) (c <= 8256))) {
+    return (nextChar this)
+  }
+  return nil
+}
+
+method entityRef XMLParser {
+  start = index
+  if (isNil (isNextChar this 38)) {
+    return nil
+  }
+  n = (name s)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  if (not (isNextChar this 59)) {
+    return (resetTo this start)
+  }
+  return n
+}
+
+method charRef XMLParser {
+  start = index
+  if (not (hasNextString this '&#')) {
+     return nil
+  }
+  if (isNextChar this 120) {
+    more = true
+    nStart = index
+    while more {
+      if (or (and (48 <= c) (c <= 57)) (and (97 <= c) (c <= 102)) (and (65 <= c) (c <= 70))) {
+        nextChar this
+      } else {
+        more = false
+      }
+    }
+  } else {
+    more = true
+    nStart = index
+    while more {
+      if (and (48 <= c) (c <= 57)) {
+        nextChar this
+      } else {
+        more = false
+      }
+    }
+  }
+  nEnd = index
+  if (not (isNextChar this 59)) {
+    return (resetTo this start)
+  }
+  return (getString this nStart nEnd)
+}
+
+method reference XMLParser {
+  start = index
+  s = (entityRef this)
+  if (notNil s) {return s}
+  s = (charRef this)
+  if (notNil s) {return s}
+  return (resetTo this start)
+}
+
+method name XMLParser {
+  s = c
+  if (isNil (nameStartChar this)) {return nil}
+  result = (list s)
+  s = c
+  while (notNil (nameChar this)) {
+    add result s
+    s = c
+  }
+  return (callWith 'string' (toArray result))
+}
+
+method names XMLParser {
+  n = (name this)
+  if (isNil n) {return nil}
+  result = (list n)
+  while true {
+    if (not (isNextChar this 32)) {return (toArray result)}
+    n = (name this)
+    if (notNil n) {
+      add result n
+    } else {
+      return (toArray result)
+    }
+  }
+}
+
+method nmtoken XMLParser {
+  s = (nameChar this)
+  if (isNil s) {return nil}
+  result = (list s)
+  while true {
+    s = (nameChar)
+    if (isNil s) {return (toArray result)}
+    add result s
+  }
+}
+
+method entityValue XMLParser {
+  quote = (isNextOneOf this 34 39)
+  if (isNil quote) {return nil}
+  quote = c
+  start = index
+  result = (list)
+  more = true
+  while more {
+    if (not (or (c == 37) (c == 38))) {
+      add result c
+      nextChar this
+    } else {
+      n = (pereference this)
+      if (notNil n) {
+        add result n
+      } else {
+        n = (reference this)
+        if (notNil n) {
+          add result n
+        } else {
+          more = false
+        }
+      }
+    }
+  }
+  if (isNil (isNextChar this quote)) {
+    return (resetTo this start)
+  }
+  return (callWith 'string' (toArray result))
+}
+
+method systemLiteral XMLParser {
+  quote = (isNextOneOf this 34 39)
+  if (isNil quote) {return nil}
+  start = index
+  result = (list)
+  more = true
+  while more {
+    if (not (c == quote)) {
+      add result c
+      nextChar this
+    } else {
+      more = false
+    }
+  }
+  if (isNil (isNextChar this quote)) {
+    (return resetTo this start)
+  }
+  return (callWith 'string' (toArray result))
+}
+
+method pubidCharMinus XMLParser {
+  // #x20 | #xD | #xA | [a-zA-Z0-9] | [-'()+,./:=?;!*#@$_%] - '
+  if (or (c == 32)
+         (c == 13)
+         (c == 10)
+         (and (65 <= c) (c <= 90))
+         (and (97 <= c) (c <= 122))
+         (and (48 <= c) (c <= 57))
+         (contains (array 45 40 41 43 44 46 47 58 61 63 59 33 42 35 64 36 95 37) c)) { // 39
+    return (nextChar this)
+  }
+  return nil
+}
+
+method pubidChar XMLParser {
+  // #x20 | #xD | #xA | [a-zA-Z0-9] | [-'()+,./:=?;!*#@$_%]
+  s = (pubidCharMinus this)
+  if (notNil s) {return s}
+  if (c == 39) {
+    return (nextChar this)
+  }
+  return nil
+}
+
+method pubidLiteral XMLParser {
+  if (not (or (c == 34) (c == 39))) {return nil}
+  quote = c
+  start = index
+  more = true
+  while more {
+    if (quote == 34) {
+      if (isNil (pubidChar this)) {
+        more = false
+      }
+    }
+    if (quote == 39) {
+      if (isNil (pubidCharMinus this)) {
+        more = false
+      }
+    }
+  }
+  if (not (c == quote)) {
+    return (resetTo this start)
+  }
+  nextChar this
+  return (callWith 'string' (toArray result))
+}
+
+method isReallyCharData XMLParser {
+  start = index
+  s this
+  if (or (c == 60) (c == 38)) {
+    resetTo this start
+    return false
+  }
+  return true
+}
+
+method charData XMLParser {
+  // [^<&]* - ([^<&]* ']]>' [^<&]*)
+  start = index
+  more = true
+  while more {
+    if (or (c == 60) (c == 38)) {
+      more = false
+    } else {
+      nextChar this
+    }
+  }
+  result = (getString this start (index - 1))
+  if (containsSubString result ']]>') {
+    return (resetTo this start)
+  }
+  return result
+}
+
+method comment XMLParser {
+  if (not (hasNextString this '<!--')) {
+    return nil
+  }
+  more = true
+  while more {
+    if (hasNextString this '-->') {
+         return true
+     }
+     nextChar
+  }
+  return nil
+}
+
+method piTarget XMLParser {
+  start = index
+  n = (name this)
+  if (isNil n) {return nil}
+  if ((toLowerCase n) == 'xml') {
+    return (resetTo this start)
+  }
+  return n
+}
+
+method piExtra XMLParser {
+  s this
+  more = true
+  while more {
+    if (hasNextString this '?>') {
+      return true
+    } else {
+      nextChar this
+    }
+  }
+  return nil
+}
+
+method pi XMLParser {
+  if (not (hasNextString this '<?')) {
+    return nil
+  }
+
+  piTarget this
+  s = (piExtra this)
+  if (notNil s) {
+    next this (count '?>')
+    return true
+  }
+  return nil
+}
+
+method cdstart XMLParser {
+  if (not (hasNextString this '<![CDATA[')) {
+    return nil
+  }
+  return true
+}
+
+method cdata XMLParser {
+  more = true
+  while more {
+    if (hasNextString this ']]>') {
+      return true
+    } else {
+      nextChar this
+    }
+  }
+  return nil
+}
+
+method cdend XMLParser {
+  if (hasNextString this ']]>') {
+    return true
+  }
+  return nil
+}
+
+method cdsect XMLParser {
+  start = index
+  s = (cdstart this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  d = (cdata this)
+  if (isNil d) {
+    return (resetTo this start)
+  }
+  s = (cdend this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  return d
+}
+
+method encName XMLParser {
+  start = index
+  if (not (or (and (65 <= c) (c <= 90))
+              (and (97 <= c) (c <= 122)))) {
+    return (resetTo this start)
+  }
+
+  more = true
+  nextChar this
+  while more {
+    if (not (or (and (48 <= c) (c <= 57))
+                (and (65 <= c) (c <= 90))
+                (c == 46)
+                (c == 95)
+                (c == 45)
+                (and (97 <= c) (c <= 122)))) {
+      more = false
+    } else {
+      nextChar this
+    }
+  }
+  return (getString this start (index - 1))
+}
+
+method encodingDecl XMLParser {
+  start = index
+  s this
+  if (not (hasNextString this 'encoding')) {
+    return (resetTo this start)
+  }
+  s this
+  if (isNil (isNextChar this 61)) {
+    return (resetTo this start)
+  }
+  s this
+  quote = (isNextOneOf this 34 39)
+  if (isNil quote) {
+    return (resetTo this start)
+  }
+  n = (encName this)
+  if (isNil (isNextChar this quote)) {
+    return (resetTo this start)
+  }
+  return n
+}
+
+method xmldecl XMLParser {
+  start = index
+  if (not (hasNextString this '<?xml')) {
+    return (resetTo this start)
+  }
+  v = (versionInfo this)
+  if (isNil v) {
+    return (resetTo this start)
+  }
+  e = (encodingDecl this)
+  //d = (sdDecl this)
+  s this
+  if (not (hasNextString this '?>')) {
+    return (resetTo this start)
+  }
+  return (array v e d)
+}
+
+method misc XMLParser {
+  if (notNil (comment this)) {return true}
+  if (notNil (pi this)) {return true}
+  if (notNil (s this)) {return true}
+}
+
+method versionInfo XMLParser {
+  start = index
+  s this
+  if (not (hasNextString this 'version')) {
+    print 'no version info'
+    return (resetTo this start)
+  }
+  s this
+  if (isNil (isNextChar this 61)) {
+    print 'no eq'
+    return (resetTo this start)
+  }
+  s this
+  quote = (isNextOneOf this 34 39)
+  if (isNil quote) {
+    print 'no open q'
+    return (resetTo this start)
+  }
+  vStart = index
+  if (not (hasNextString this '1.')) {
+    return (resetTo this start)
+  }
+  more = true
+  while more {
+    if (and (48 <= c) (c <= 57)) {
+      nextChar this
+    } else {
+      more = false
+    }
+  }
+  vEnd = (index - 1)
+  if (isNil (isNextChar this quote)) {
+    return (resetTo this start)
+  }
+  return (getString this vStart vEnd)
+}
+
+method doctypedecl XMLParser {
+  start = index
+  if (not (hasNextString this '<!DOCTYPE')) {
+    return nil
+  }
+  s this
+  n = (name this)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  s this
+  externalID this
+  s this
+  good = false
+  if (isNextChar this 91) {
+    intsubset this
+    if (isNextChar this 93) {
+      s this
+      good = true
+    }
+  }
+  if (not good) {
+    return (resetTo this start)
+  }
+  if (isNil (isNextChar this 62)) {
+    return (resetTo this start)
+  }
+  return true
+}
+
+method intSubset XMLParser {
+  start = index
+  more = true
+  while more {
+    s = (markupdecl this)
+    if (isNil s) {
+      s = (declSep this)
+      if (isNil s) {
+        more = false
+      }
+    }
+  }
+  return true
+}
+
+method markupdecl XMLParser {
+  s = (elementdecl this)
+  if (notNil s) {return s}
+  s = (attlistDecl this)
+  if (notNil s) {return s}
+  s = (entityDecl this)
+  if (notNil s) {return s}
+  s = (notationDecl this)
+  if (notNil s) {return s}
+  s = (pi this)
+  if (notNil s) {return s}
+  s = (comment this)
+  if (notNil s) {return s}
+  return nil
+}
+
+method contentspect XMLParser {
+  start = index
+  if (hasNextString this 'EMPTY') {
+    return true
+  }
+  if (hasNextString this 'ANY') {
+    return true
+  }
+  //if  mixed or children
+  return nil
+}
+
+method elementdecl XMLParser {
+  start = index
+  if (not (hasNextString this '<!ELEMENT')) {
+    return (resetTo this start)
+  }
+  s = (s this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (name this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (s this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (contentspect this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s this
+  if (not (c == 62)) {
+    return (resetTo this start)
+  }
+  return true
+}
+
+method attDef XMLParser {
+  start = index
+  s = (s this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (name this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (attType this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (s this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (defaultDecl this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+}
+
+method attlistDecl XMLParser {
+  start = index
+  if (not (hasNextString this '<!ATTLIST')) {
+    return (resetTo this start)
+  }
+  s = (s this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  s = (name this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  more = true
+  while more {
+    s = (attDef this)
+    if (isNil s) {
+      more = false
+    }
+  }
+  s this
+  if (not (c == 62)) {
+    return (resetTo this start)
+  }
+  return true
+}
+
+method attValue XMLParser {
+  start = index
+  quote = (isNextOneOf this 34 39)
+  if (isNil quote) {
+    print 'no open q'
+    return (resetTo this start)
+  }
+  aStart = index
+  more = true
+  while more {
+    if (and (c != 60) (c != 38) (c != quote)) {
+      nextChar this
+    } else {
+      s = (reference this)
+      if (isNil s) {
+        more = false
+      }
+    }
+  }
+  aEnd = (index - 1)
+  if (isNil (isNextChar this quote)) {
+    print 'no close q'
+    return (resetTo this start)
+  }
+  return (getString this aStart aEnd)
+}
+
+method attribute XMLParser {
+  start = index
+  n = (name this)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  s this
+  if (isNil (isNextChar this 61)) {
+    print 'no eq'
+    return (resetTo this start)
+  }
+  s this
+  a = (attValue this)
+  if (isNil a) {
+    return (resetTo this start)
+  }
+  return (array n a)
+}
+
+method stag XMLParser {
+  start = index
+  if (isNil (isNextChar this 60)) {
+    return nil
+  }
+  n = (name this)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  more = true
+  attr = (list)
+  while more {
+    s = (s this)
+    if (isNil s) {
+      more = false
+    } else {
+      a = (attribute this)
+      if (notNil a) {
+        add attr a
+      } else {
+        more = false
+      }
+    }
+  }
+  s this
+  if (isNil (isNextChar this 62)) {
+    return (resetTo this start)
+  }
+  return (array n (toArray attr))
+}
+
+method etag XMLParser {
+  start = index
+  if (not (hasNextString this '</')) {
+    print 'no etag'
+    return nil
+  }
+
+  n = (name this)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  s this
+  if (isNil (isNextChar this 62)) {
+    return (resetTo this start)
+  }
+  return (array n)
+}
+
+method emptyElemTag XMLParser {
+  start = index
+  if (isNil (isNextChar this 60)) {
+    return nil
+  }
+  n = (name this)
+  if (isNil n) {
+    return (resetTo this start)
+  }
+  more = true
+  attr = (list)
+  while more {
+    s = (s this)
+    if (isNil s) {
+      more = false
+    } else {
+      a = (attribute this)
+      if (notNil a) {
+        add attr a
+      } else {
+        more = false
+      }
+    }
+  }
+  s this
+  if (not (hasNextString this '/>')) {
+    return (resetTo this start)
+  }
+  return (array n (toArray attr))
+}
+
+method content XMLParser {
+  start = index
+  elems = (list)
+  if (isReallyCharData this) {
+    s = (charData this)
+    add elems s
+  }
+  more = true
+  while more {
+    s = (element this)
+    if (notNil s) {
+      add elems s
+    } else {
+      s = (reference this)
+      if (notNil s) {
+        add elems s
+      } else {
+        s = (cdsect this)
+        if (notNil s) {
+          add elems s
+        } else {
+          s = (pi this)
+          if (notNil s) {
+            add elems s
+          } else {
+            s = (comment this)
+            if (isNil s) {
+              more = false
+            }
+          }
+        }
+      }
+    }
+    if (isReallyCharData this) {
+      s = (charData this)
+      add elems s
+    } else {
+      charData this
+    }
+  }
+  return (toArray elems)
+}
+
+method element XMLParser {
+  start = index
+  s this
+  s = (emptyElemTag this)
+  if (notNil s) {
+    return (initialize (new 'XMLElement') (at s 1) nil (at s 2))
+  }
+  s this
+  s = (stag this)
+  if (isNil s) {
+    return (resetTo this start)
+  }
+  cnt = (content this)
+  if (isNil cnt) {
+    return (resetTo this start)
+  }
+  e = (etag this)
+  if (isNil e) {
+    return (resetTo this start)
+  }
+  if ((at s 1) != (at e 1)) {
+    error 'non-matching start and end tags.'
+    return (resetTo this start)
+  }
+  return (initialize (new 'XMLElement') (at s 1) cnt (at s 2))
+}
+
+method document XMLParser {
+  decl = (xmldecl this)
+  if (isNil decl) {error 'not xml'}
+  misc this
+  elem = (element this)
+  return (initialize (new 'XMLElement') 'document' (array elem) nil)
+}

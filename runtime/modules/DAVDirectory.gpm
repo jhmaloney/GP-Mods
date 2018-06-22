@@ -1,0 +1,1257 @@
+module 'DAVDirectory'
+moduleExports DAVClient SocketStream URIParser URL
+moduleVariables Debug
+
+to initializeModule debugFlag {
+  setShared 'Debug' debugFlag (thisModule)
+}
+
+to dprint args... {
+  // should be called print, and calls to this function in this file should work,
+  //  but method cache flushing has a bug
+  if ((shared 'Debug') != true) {return}
+  result = (list)
+  for i (argCount) {
+    add result (toString (arg i))
+    if (i != (argCount)) {
+      add result ' '
+    }
+  }
+  log (joinStringArray (toArray result))
+}
+
+defineClass BiDiDataStream data readPosition writePosition bigEndian
+
+to bidiDataStream data bigEndian {
+  return (new 'BiDiDataStream' data 0 0 bigEndian)
+}
+
+method data BiDiDataStream { return data }
+method readPosition BiDiDataStream { return readPosition }
+method setReadPosition BiDiDataStream n { readPosition = (clamp n 0 (byteCount data)) }
+method writePosition BiDiDataStream { return writePosition }
+method setWritePosition BiDiDataStream n { writePosition = (clamp n 0 (byteCount data)) }
+method bigEndian BiDiDataStream { return bigEndian }
+
+method atEnd BiDiDataStream {
+  return (readPosition >= writePosition)
+}
+
+method nextUInt8 BiDiDataStream {
+  readPosition += 1
+  result = (byteAt data readPosition)
+  return result
+}
+
+method nextData BiDiDataStream byteCount {
+  dprint 'byteCount' byteCount
+  result = (newBinaryData byteCount)
+  replaceByteRange result 1 byteCount data (readPosition + 1)
+  readPosition += byteCount
+  return result
+}
+
+method nextPutAll BiDiDataStream stringOrData from to {
+  if (isNil from) { from = 1 }
+  if (isNil to) { to = (byteCount stringOrData) }
+  newPos = (writePosition + ((to - from) + 1))
+  if (newPos > (byteCount data)) { grow this newPos }
+  replaceByteRange data (writePosition + 1) newPos stringOrData from
+  writePosition = newPos
+}
+
+method grow BiDiDataStream delta {
+  if (isNil delta) { delta = (max 8 (byteCount data)) }
+  newSize = ((byteCount data) + delta)
+  newData = (newBinaryData newSize)
+  replaceByteRange newData 1 (byteCount data) data
+  data = newData
+}
+
+method contents BiDiDataStream {
+  result = (rawContents this)
+  readPosition = writePosition
+  return result
+}
+
+method rawContents BiDiDataStream {
+  count = (writePosition - readPosition)
+  result = (newBinaryData count)
+  replaceByteRange result 1 count data (readPosition + 1)
+  return result
+}
+
+method availableBytesToRead BiDiDataStream {
+  return (writePosition - readPosition)
+}
+
+defineClass SocketStream socket inBuffer outBuffer timeout bufferSize binary
+
+method initialize SocketStream sock {
+  socket = sock
+  timeout = 5
+  binary = true
+  inBuffer = (bidiDataStream (newBinaryData 0))
+  outBuffer = (bidiDataStream (newBinaryData 0))
+  return this
+}
+
+method binary SocketStream {
+  return binary
+}
+
+method setBinary SocketStream aBoolean {
+  if (aBoolean === binary) { return }
+  binary = aBoolean
+}
+
+method isClosed SocketStream {
+  return (or (isNil socket) (isNil (socketStatus socket)))
+}
+
+method atEnd SocketStream {
+  if (isNil (socketStatus socket)) { return true }
+  if ((receiveData this) > 0) { return false }
+  if ((readPosition inBuffer) == 0) { return true }
+}
+
+method flush SocketStream {
+  sendData this
+}
+
+method receiveData SocketStream {
+  more = true
+  count = 0
+  while (and (notNil (socketStatus socket)) more) {
+    buffer = (readSocket socket binary)
+    if ((byteCount buffer) > 0) {
+      dprint 'count' (byteCount buffer)
+      count += (byteCount buffer)
+      nextPutAll inBuffer buffer
+    } else {
+      more = false
+    }
+  }
+  return count
+}
+
+method sendData SocketStream {
+  contents = (contents outBuffer)
+
+  while (and (notNil (socketStatus socket)) ((byteCount contents) > 0)) {
+    bytesWritten = (writeSocket socket contents)
+    dprint 'byteswritten:' bytesWritten
+    if (bytesWritten > 0) {
+	  // workaround
+	  gcIfNeeded
+      newContents = (newBinaryData ((byteCount contents) - bytesWritten))
+      replaceByteRange newContents 1 (byteCount newContents) contents (bytesWritten + 1)
+      contents = newContents
+      waitMSecs 10
+    }
+  }
+}
+
+method waitForData SocketStream {
+  startTime = (at (time) 1)
+  msecsDelta = (floor (timeout * 1000))
+  now = (at (time) 1)
+  diff = ((now - startTime) * 1000)
+  while (and (not (isClosed this)) (diff < msecsDelta)) {
+    count = (receiveData this)
+    if (or (((writePosition inBuffer) - (readPosition inBuffer)) > 0) (count > 0)) {return true}
+    now = (at (time) 1)
+    diff = ((now - startTime) * 1000)
+    waitMSecs 100
+  }
+  return false
+}
+
+method upToAll SocketStream target limit {
+  notTimeOut = true
+  if (isNil limit) {limit = 100000}
+  while notTimeOut {
+    notTimeOut = (waitForData this)
+    receiveData this
+    contents = (toString (rawContents inBuffer))
+    ind = (containsSubString contents target)
+    if (ind > 0) {
+      result = (next this (ind - 1))
+      next this (byteCount target)
+      return result
+    }
+    if ((byteCount contents) > limit) {return (contents inBuffer)}
+  }
+  return (contents inBuffer)
+}
+
+method sendCommand SocketStream data {
+  nextPutAll this data
+  nextPutAll this (string 13 10)
+  flush this
+}
+
+method nextPutAll SocketStream data {
+  nextPutAll outBuffer data
+}
+
+method next SocketStream count {
+  // assumes that bytes requested will come eventually
+  notTimeOut = true
+  while notTimeOut {
+    notTimeOut = (waitForData this)
+    receiveData this
+    if ((availableBytesToRead inBuffer) >= count) {
+      if binary {
+        return (nextData inBuffer count)
+      } else {
+        return (toString (nextData inBuffer count))
+      }
+    }
+  }
+}
+
+method nextStringLine SocketStream {
+  bytes = (list)
+  last = nil
+  waitForData this
+  while (not (atEnd inBuffer)) {
+    ch = (nextUInt8 inBuffer)
+    if (and (ch === 10) (last === 13)) {
+      return (toString (toBinaryData (toArray bytes)))
+    }
+    if (notNil last) {add bytes last}
+    last = ch
+  }
+  return (toString (toBinaryData (toArray bytes)))
+}
+
+defineClass DAVClient lastHeader lastResponse multistatus user password url stream
+
+method openURL DAVClient aURL {
+  if (notNil url) {stream = nil}
+  if ((className (classOf aURL)) == 'String') {
+    aURL = (url (initialize (new 'URIParser') aURL))
+  }
+  url = aURL
+  // addr = look up addr from host
+  port = (port aURL)
+  if (isNil port) {
+    port = 80
+  }
+  ensureConnection this
+}
+
+method setUser DAVClient aString {
+  user = aString
+}
+
+method setPassword DAVClient aString {
+  password = aString
+}
+
+method maybeSetAccountFromConfFile DAVClient location {
+  file = (readFile 'server.conf')
+  if (notNil file) {
+    conf = (jsonParse file)
+  }
+  serverDirectory = (at conf 'serverDirectory')
+  dprint 'uu' location serverDirectory
+  if (and (notNil serverDirectory) (beginsWith location serverDirectory)) {
+    account = (at conf 'account')
+    accountPassword = (at conf 'accountPassword')
+    setUser this account
+    setPassword this accountPassword
+  }
+  return this
+}
+
+method listFiles DAVClient aURL {
+  openURL this aURL
+  result = (propFind this (array 'getlastmodified' 'getcontentlength' 'resourcetype' ) 1 nil)
+  //result = (readFile 'dir.xml')
+  if (isNil result) {
+    return result
+  }
+  if (beginsWith (lastResponseCode this) '4') {
+    return (array 'Authentication Failed')
+  }
+  return (parseDirectoryEntries this result)
+}
+
+method put DAVClient data {
+  return (request this 'PUT' (dictionary) data)
+}
+
+method get DAVClient {
+  return (request this 'GET' (dictionary) '')
+}
+
+method delete DAVClient {
+  return (request this 'DELETE' (dictionary) '')
+}
+
+method mkcol DAVClient {
+  return (request this 'MKCOL' (dictionary) '')
+}
+
+method sendRequest DAVClient reqMethod headers body {
+  dprint 'sendRequest' (join reqMethod ' ' (fullPath url) ' ' 'HTTP/1.1')
+  sendCommand stream (join reqMethod ' ' (fullPath url) ' ' 'HTTP/1.1')
+  atPut headers 'Content-Length' (toString (byteCount body))
+  atPut headers 'Host' (host url)
+
+  if (isNil password) {
+    pass = ''
+  } else {
+    pass = password
+  }
+  if (notNil user) {
+    atPut headers 'Authorization' (join 'Basic ' (base64Encode (join user ':' pass)))
+  }
+
+  // deal with user
+  keys = (keys headers)
+  for k keys {
+    nextPutAll stream k
+    nextPutAll stream ': '
+    nextPutAll stream (at headers k)
+    nextPutAll stream (string 13 10)
+  }
+  nextPutAll stream (string 13 10)
+  flush stream
+  nextPutAll stream body
+  flush stream
+}
+
+method request DAVClient reqMethod headerDict body {
+  //askNamePasswordIfNecessary this
+  sendRequest this reqMethod headerDict body
+  b = (receiveResponse this)
+  retry = (isRetryNeeded this)
+  while retry {
+    dprint 'retry' reqMethod
+    sendRequest this reqMethod headerDict body
+    b = (receiveResponse this)
+    retry = (isRetryNeeded this)
+  }
+  return b
+}
+
+method close DAVClient {
+  stream = nil
+}
+
+method propFind DAVClient propertyKeys depth label {
+  req = (list)
+  add req '<propfind xmlns="DAV:"><prop>'
+  for k propertyKeys {
+    add req '<'
+    add req k
+    add req '/>'
+  }
+  add req '</prop></propfind>'
+  contents = (joinStringArray (toArray req))
+  headers = (dictionary)
+  if (notNil depth) {atPut headers 'Depth' (toString depth)}
+  if (notNil label) {atPut headers 'Label' label}
+
+  return (request this 'PROPFIND' headers contents)
+}
+
+method isRetryNeeded DAVClient {
+  dprint 'isRetryNeeded' lastResponse
+  if (isClosed stream) {
+    return false
+  }
+  if (isEmpty lastResponse) {
+    //error 'no content'
+    return true
+  }
+
+  if ((at lastHeader 'connection') == 'close') {
+     close this
+     ensureConnection this
+  }
+
+  if ((at (lastResponseCode this) 1) == (at '2' 1)) {
+    return false
+  }
+
+  if ((lastResponseCode this) == '401') {
+    //askNamePasswordIfNecessary this
+    if (isNil password) {return false}
+    error 'login failed'
+  }
+
+  if (and ((at (lastResponseCode this) 1) == (at '3' 1))
+          (contains lastHeader 'location')) {
+    dprint 'location' (at lastHeader 'location')
+    p = (initialize (new 'URIParser') (at lastHeader 'location'))
+    u = (url p)
+    openURL this u
+    return true
+  }
+
+  if ((at (lastResponseCode this) 1) == (at '5' 1)) {
+    error (join 'an internal server error occured: ' (lastResponseCode this))
+    return true
+  }
+  error 'protocol error'
+  return false
+}
+
+method nextChunkedBody DAVClient isBinary {
+  more = true
+  str = (dataStream (newBinaryData 100))
+  while more {
+    chunkSize = (nextStringLine stream)
+    size = (hex chunkSize)
+    if (size == 0) {
+      more = false
+    } else {
+      nextPutAll str (next stream size)
+      next stream 2 // skip CRLF
+    }
+  }
+  next stream 2 // skip CRLF
+  val = (contents str)
+  if isBinary {return val}
+  return (toString val)
+}
+
+method receiveResponse DAVClient {
+  fetchNextResponse this
+  lastHeader = (parseHTTPHeader this (toString (upToAll stream (string 13 10 13 10))))
+  dprint lastHeader
+  if (contains lastHeader 'content-length') {
+    dprint 'has content length' (at lastHeader 'content-length')
+    return (next stream (toNumber (at lastHeader 'content-length')))
+  }
+  if (contains lastHeader 'transfer-encoding') {
+    dprint 'content-type' (at lastHeader 'content-type')
+    if (endsWith (toLowerCase (at lastHeader 'content-type')) 'octet-stream') {
+      return (nextChunkedBody this true)
+    } else {
+      return (nextChunkedBody this false)
+    }
+  }
+}
+
+method lastResponseCode DAVClient {
+  last = lastResponse
+  if (notNil last) {
+    index = (findFirst last ' ')
+    return (stringFromByteRange last (index + 1) (index + 3))
+  }
+  return nil
+}
+
+method fetchNextResponse DAVClient {
+  line = (nextStringLine stream)
+  lastResponse = line
+  multistatus = (or (endsWith (toLowerCase lastResponse) 'multistatus') (endsWith (toLowerCase lastResponse) 'multi-status'))
+  dprint 'fetched' lastResponse (count lastResponse) multistatus
+  return lastResponse
+}
+
+method parseHTTPHeader DAVClient aString {
+  dict = (dictionary)
+  if (or (isNil aString) ((count aString) === 0)) {return dict}
+  crlf = (string 13 10)
+  colon = (at ':' 1)
+  more = true
+  lines = (splitWithString aString crlf)
+  dprint lines
+  lastKey = nil
+  for line lines {
+    if (isWhiteSpace (at line 1)) {
+      if (isNil lastKey) {
+        error 'wrong format: a continuation line at the beginning of the header'
+      } else {
+        atPut dict lastKey (join (at dict lastKey) line)
+      }
+    } else {
+      colonPos = (findFirst line colon)
+      if (isNil colonPos) {
+        key = (toLowerCase line)
+        value = ''
+      } else {
+        key = (toLowerCase (trim (stringFromByteRange line 1 (colonPos - 1))))
+        value = (trim (stringFromByteRange line (colonPos + 1) (byteCount line)))
+      }
+      atPut dict key value
+      lastKey = key
+    }
+  }
+  return dict
+}
+
+method ensureConnection DAVClient {
+  if (and (notNil stream) (not (isClosed stream))) {return}
+  sock = (openClientSocket (host url) (port url))
+  stream = (initialize (new 'SocketStream') sock)
+//  if (isClosed stream) {error 'failed to open'}
+}
+
+method parseDirectoryEntries DAVClient data {
+  m = (loadModule 'modules/XMLParser.gpm')
+  c = (at m 'XMLParser')
+  x = (initialize (new c) data)
+
+  doc = (document x)
+
+  mult = (elementNamed doc 'multistatus')
+  elems = (contents mult)
+  result = (list)
+  for e elems {
+    r = (parsePropertyResponse this e)
+    if (and (notNil r) ((count r) >= 0)) {
+      dprint 'r' r
+      add result (percentDecode r)
+    }
+  }
+  return (toArray result)
+}
+
+method parsePropertyResponse DAVClient response {
+  directoryString = (fullPath url)
+  if (not (endsWith directoryString '/')) {
+    directoryString = (join directoryString '/')
+  }
+  n = (contentString (elementNamed response 'href'))
+  childName = (stringFromByteRange n ((byteCount directoryString) + 1) (byteCount n))
+  if (and ((byteCount childName) > 0) ((byteAt childName (byteCount childName)) == (at '/' 1))) {
+    childName = (stringFromByteRange childName 1 ((byteCount childName) - 1))
+  }
+
+  propStats = (list)
+  for e (contents response) {
+    if ((containsSubString (toLowerCase (name e)) 'propstat') > 0) {
+      add propStats e
+    }
+  }
+  return childName
+}
+
+defineClass URL scheme host hostFormat userinfo password path port query fragment
+
+method scheme URL {return scheme}
+method setScheme URL aString {scheme = aString} // asLowercase
+
+method host URL {return host}
+method setHost URL aString {
+  if (beginsWith aString '[') {
+    hostFormat = 'v6'
+    host = aString
+    // should ends with ']'
+  }
+  p = (initialize (new 'URIParser') aString)
+  p = (ipv4Address p)
+  if (notNil p) {
+    hostFormat = 'v4'
+    host = aString
+  } else {
+    hostFormat = 'regName'
+    host = aString
+  }
+}
+
+method port URL {return port}
+method setPort URL aNumber {port = aNumber}
+
+method setPath URL aCollection {path = aCollection}
+method path URL aCollection {return path}
+
+method isDirectory URL {
+  return ((at path (count path)) == '/')
+}
+
+method beDirectory URL {
+  if ((at path (count path)) != '/') {
+    path = (join path (array ''))
+  }
+}
+
+//method setFullPath URL aString {
+//  parser = (initialize (new 'URIParser') aString)
+//  p = (pathAbsolute parser)
+//  path = p
+//}
+
+method fullPath URL {
+  return (join '/' (joinStringArray (toArray path) '/'))
+}
+
+method setQUery URL aDictionary {query = aDictionary}
+method query URL {
+  if (isNil query) {
+    return (dictioary)
+  } else {
+    return query
+  }
+}
+
+method toString URL {
+  if (notNil userinfo) {
+    u = (join userinfo '@')
+  } else {
+    u = ''
+  }
+  if (notNil port) {
+    p = (join ':' (toString port))
+  } else {
+    p = ''
+  }
+  if (and (not (isNil path)) ((count path) > 0)) {
+    f = (fullPath this)
+  } else {
+    f = ''
+  }
+
+  if (and (notNil query) ((count query) > 0)) {
+    q = (list)
+    keys = (keys query)
+    for k keys {
+      v = (at query k)
+      add q '?'
+      add q k
+      add q '='
+      add q v
+    }
+    q = (joinStringArray q)
+  } else {
+    q = ''
+  }
+
+  if (notNil fragment) {
+    g = (join '#' fragment)
+  } else {
+    g = ''
+  }
+  return (join scheme ':'
+        '//'
+        u
+        host
+        p
+        f
+        q
+        g)
+}
+
+defineClass URIParser data c index
+
+method initialize URIParser d {
+  if (isClass d 'String') {
+    data = (newBinaryData (byteCount d))
+    replaceByteRange data 1 (byteCount d) d
+  } (isClass d 'BinaryData') {
+    data = d
+  } else {
+    error 'wrond type'
+  }
+  index = 0
+  nextChar this
+  return this
+}
+
+method nextChar URIParser {
+  s = c
+  index = (index + 1)
+  if (index > (byteCount data)) {
+    c = nil
+    return s
+  }
+  c = (byteAt data index)
+  return s
+}
+
+method next URIParser n {
+  index = (index + n)
+  c = (byteAt data index)
+}
+
+method hasNextString URIParser n {
+  result = (hasSubStringAt data n index)
+  if result {
+    index = (index + (byteCount n))
+    c = (byteAt data index)
+    return true
+  }
+  return false
+}
+
+method isNextChar URIParser code {
+  if (c == code) {
+    nextChar this
+    return code
+  }
+  return nil
+}
+
+method isNextOneOf URIParser args... {
+  for a (argCount) {
+    if (c == (arg a)) {
+      nextChar this
+      return (arg a)
+    }
+  }
+  return nil
+}
+
+method resetTo URIParser i {
+  index = i
+  c = (byteAt data index)
+  return nil
+}
+
+method alpha URIParser {
+  if (or (and (65 <= c) (c <= 90))
+         (and (97 <= c) (c <= 122))) {
+    return (nextChar this)
+  }
+  return nil
+}
+
+method digit URIParser {
+  if (and (48 <= c) (c <= 57)) {
+    return (nextChar this)
+  }
+  return nil
+}
+
+method hexdig URIParser {
+  if (and (48 <= c) (c <= 57)) {
+    n = (nextChar this)
+    return (n - 48)
+  }
+  if (and (97 <= c) (c <= 102)) {
+    n = (nextChar this)
+    return ((n - 97) + 10)
+  }
+  if (and (65 <= c) (c <= 70)) {
+    n = (nextChar this)
+    return ((n - 65) + 10)
+  }
+  return nil
+}
+
+method unreserved URIParser {
+  //  ALPHA / DIGIT / "-" / "." / "_" / "~"
+  s = c
+  if (or (notNil (alpha this))
+         (notNil (digit this))
+         (notNil (isNextOneOf this 45 46 95 126))) {
+    return s
+  }
+  return nil
+}
+
+method pctEncoded URIParser {
+  start = index
+  if (isNil (isNextChar this 37)) {
+    return nil
+  }
+  d1 = (hexdig this)
+  if (isNil d1) {
+    return (resetTo this start)
+  }
+  d2 = (hexdig this)
+  if (isNil d2) {
+    return (resetTo this start)
+  }
+  return (d1 * 16) + d2
+}
+
+method genDelims URIParser {
+  //  ":" / "/" / "?" / "#" / "[" / "]" / "@"
+  return (isNextOneOf this 58 32 63 35 91 93 64)
+}
+
+method subDelims URIParser {
+  //  "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
+  return (isNextOneOf this 33 36 38 39 40 41 42 43 44 59 61)
+}
+
+method pchar URIParser {
+  start = index
+  if (or (notNil (unreserved this))
+         (notNil (pctEncoded this))
+         (notNil (subDelims this))
+         (notNil (isNextOneOf this 58 64))) {
+     return true
+  }
+  return nil
+}
+
+method segmentNzNc URIParser {
+  // 1*( unreserved / pct-encoded / sub-delims / "@" )
+  start = index
+  more = true
+  while more {
+    if (not (or (notNil (unreserved this))
+                (notNil (pctEncoded this))
+                (notNil (subDelims this))
+                (notNil (isNextChar this 64)))) {
+      more = false
+    }
+  }
+  if (index == start) {
+    return nil
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method segmentNz URIParser {
+  start = index
+  more = true
+  while more {
+    if (isNil (pchar this)) {
+      more = false
+    }
+  }
+  if (index == start) {
+    return nil
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method segment URIParser {
+  start = index
+  more = true
+  while more {
+    if (isNil (pchar this)) {
+      more = false
+    }
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method scheme URIParser {
+  start = index
+  if (isNil (alpha this)) {
+    return (resetTo this start)
+  }
+  more = true
+  while more {
+    if (not (or (notNil (alpha this))
+           (notNil (digit this))
+           (notNil (isNextOneOf this 43 45 46)))) {
+      // "+" "-" "."
+      more = false
+    }
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method authority URIParser {
+  start = index
+  u = (userinfo this)
+  if (notNil u) {
+    if (isNil (isNextChar this 64)) {
+       u = nil
+    }
+  }
+  h = (host this)
+  if (isNil h) {
+    return (resetTo this start)
+  }
+  if (notNil (isNextChar this 58)) {
+    p = (port this)
+    if (isNil p) {
+      return (resetTo this start)
+    }
+  }
+  return (array u h p)
+}
+
+method userinfo URIParser {
+  start = index
+  more = true
+  while more {
+    if (isNil (unreserved this)) {
+      if (isNil (pctEncoded this)) {
+        if (isNil (subDelims this)) {
+          if (isNil (isNextChar this 58)) {
+            more = false
+          }
+        }
+      }
+    }
+  }
+  if (isNil (isNextChar this 64)) {
+    return (resetTo this start)
+  }
+  if (index == start) {
+    return nil
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method ipv6Address URIParser {
+
+  // ...
+  return nil
+}
+
+method ipvFutureAddress URIParser {
+  // ...
+  return nil
+}
+
+method ipLiteral URIParser {
+  start = index
+  if (isNil (isNextChar this 91)) {
+    return (resetTo this start)
+  }
+  v = (ipv6Address this)
+  if (isNil v) {
+    v = (ipvFutureAddress this)
+    if (isNil v) {
+      return (resetTo this start)
+    }
+  }
+  if (isNil (isNextChar this 93)) {
+    return (resetTo this start)
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method decOctet URIParser {
+  start = index
+  more = true
+  while more {
+    if (and (48 <= c) (c <= 57)) {
+      nextChar this
+    } else {
+      more = false
+    }
+  }
+  str = (stringFromByteRange data start (index - 1))
+  num = (toNumber str)
+  if (and ((count str) <= 3) (0 <= num) (num <= 255)) {
+    return str
+  }
+  return (resetTo this start)
+}
+
+method ipv4Address URIParser {
+  start = index
+  if (and (notNil (decOctet this))
+          (notNil (isNextChar this 46))
+          (notNil (decOctet this))
+          (notNil (isNextChar this 46))
+          (notNil (decOctet this))
+          (notNil (isNextChar this 46))
+          (notNil (decOctet this))) {
+    return (stringFromByteRange data start (index - 1))
+  }
+  return (resetTo this start)
+}
+
+method regName URIParser {
+  start = index
+  more = true
+  while more {
+    if (and (isNil (unreserved this))
+            (isNil (pctEncoded this))
+            (isNil (subDelims this))) {
+      more = false
+    }
+  }
+  // The RFC 3986 seems to indicate that it can be empty but I'm checking the length
+  if (start == index) {
+    return nil
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method port URIParser {
+  start = index
+  more = true
+  while more {
+    if (isNil (digit this)) {
+      more = false
+    }
+  }
+  if (start == index) {
+    return nil
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method host URIParser {
+  start = index
+  h = (ipLiteral this)
+  if (notNil h) {
+    return h
+  }
+  h = (ipv4Address this)
+  if (notNil h) {
+    return h
+  }
+  h = (regName this)
+  if (notNil h) {
+    return h
+  }
+  return (resetTo this start)
+}
+
+method pathRootless URIParser {
+  start = index
+  seg = (segmentNz this)
+  if (isNil seg) {
+    return (resetTo this start)
+  }
+  more = true
+  segs = (list seg)
+  while more {
+    if (isNil (isNextChar this 47)) {
+      more = false
+    }
+    if more {
+      seg = (segment this)
+      if (isNil seg) {
+        return (resetTo this start)
+      } else {
+        add segs seg
+      }
+    }
+  }
+  return (toArray segs)
+}
+
+method pathNoScheme URIParser {
+  start = index
+  seg = (segmentNzNc this)
+  if (isNil seg) {
+    return (resetTo this start)
+  }
+  more = true
+  segs = (list seg)
+  while more {
+    if (isNil (isNextChar this 47)) {
+      more = false
+    }
+    if more {
+      seg = (segment this)
+      if (isNil seg) {
+        return (resetTo this start)
+      } else {
+        add segs seg
+      }
+    }
+  }
+  return (toArray seg)
+}
+
+method pathAbsolute URIParser {
+  start = index
+  if (isNil (isNextChar this 47)) {
+    return nil
+  }
+  segs = (pathRootless this)
+  if (isNil segs) {
+    return (array)
+  } else {
+    return segs
+  }
+}
+
+method pathAbEmpty URIParser {
+  start = index
+  more = true
+  segs = (list)
+  while more {
+    if (isNil (isNextChar this 47)) {
+      more = false
+    }
+    if more {
+      seg = (segment this)
+      if (isNil seg) {
+        return (resetTo this start)
+      } else {
+        add segs seg
+      }
+    }
+  }
+  return (toArray segs)
+}
+
+
+method path URIParser {
+  start = index
+  s = (pathRootless this)
+  if (notNil s) {
+    return s
+  }
+  s = (pathNoScheme this)
+  if (notNil s) {
+    return s
+  }
+  s = (pathAbsolute this)
+  if (notNil s) {
+    return s
+  }
+  s = (pathAbEmpty this)
+  if (notNil s) {
+    return s
+  }
+  return nil
+}
+
+method query URIParser {
+  start = index
+  more = true
+  while more {
+    if (and (isNil (pchar this))
+            (isNil (isNextOneOf this 47 63))) {
+      more = false
+    }
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method fragment URIParser {
+  start = index
+  more = true
+  while more {
+    if (and (isNil (pchar this))
+            (isNil (isNextOneOf this 47 63))) {
+      more = false
+    }
+  }
+  return (stringFromByteRange data start (index - 1))
+}
+
+method uri URIParser {
+  scheme = (scheme this)
+  if (isNil scheme) {error 'no scheme'}
+  if (isNil (isNextChar this 58)) {
+    error 'no colon'
+  }
+  if (hasNextString this '//') {
+    a = (authority this)
+    if (isNil a) {
+      error 'no authority'
+    }
+    data = (percentEncode data)
+    p = (pathAbEmpty this)
+    if (isNil p) {
+      error 'no path, even an empty one'
+    }
+  } (hasNextString this '/') {
+    p = (pathAbsolute this)
+  } else {
+    p = (pathRootless this)
+    if (isNil p) {
+      p = (array)
+    }
+  }
+  if (notNil (isNextChar this 63)) {
+    q = (query this)
+  }
+  if (notNil (isNextChar this 35)) {
+    f = (fragment this)
+  }
+  return (array scheme a p q f)
+}
+
+method url URIParser {
+  a = (uri this)
+  u = (new 'URL')
+  setScheme u (at a 1)
+  setHost u (at (at a 2) 2)
+  setHost u (at (at a 2) 2)
+  p = (at (at a 2) 3)
+  if (isNil p) {p = 80}
+  setPort u (toNumber p)
+  setPath u (at a 3)
+  return u
+}
+
+// expander
+method hasSubStringAt BinaryData target start {
+  count = (byteCount target)
+  if (or ((byteCount this) == 0) (count == 0)) {return false}
+  if (isNil start) {start = 1}
+  if (((start - 1) + count) > (byteCount this)) {return false}
+  for j count {
+    if (not ((byteAt this (+ start j -1)) == (byteAt target j))) {
+      return false
+    }
+  }
+  return true
+}
+
+to percentEncode data componentFlag {
+  // There are some conflicting ideas around what to be escaped.
+  // The specification of Rfc3986 has the following as unreserved chars
+  // ALPHA / DIGIT / "-" / "." / "_" / "~"
+  // In the end, which part should be encoded depends on the usage,
+  // and JavaScript offers encodeURI and encodeURIComponent.
+  //  We follow the convention and behavior here.
+  //  The componentFlag sets the behavior whether it is equivalent of encodeURIComponent or not
+
+  if (componentFlag == true) {
+    symBytes = (codePoints '-_.!~*''( )')
+  } else {
+    symBytes = (codePoints '#;,/?:@&=+$-_.!~*''()')
+  }
+
+  hexDigits = (array 48 49 50 51 52 53 54 55 56 57 65 66 67 68 69 70)
+  result = (dataStream (newBinaryData ((byteCount data) * 2)))
+
+  stream = (dataStream data)
+
+  while (not (atEnd stream)) {
+    c = (nextUInt8 stream)
+    if (or (and (65 <= c) (c <= 90))
+           (and (97 <= c) (c <= 122))
+           (and (48 <= c) (c <= 57))
+           (contains symBytes c)) {
+      putUInt8 result c
+    } else {
+      putUInt8 result 37
+      putUInt8 result (at hexDigits ((truncate (c / 16)) + 1))
+      putUInt8 result (at hexDigits ((truncate (c % 16)) + 1))
+    }
+  }
+  if (isClass data 'String') {
+    return (stringContents result)
+  } else {
+    return (contents result)
+  }
+}
+
+to unhex digit {
+  if (and (48 <= digit) (digit <= 57)) {
+    return (digit - 48)
+  } (and (65 <= digit) (digit <= 70)) {
+    return ((digit - 65) + 10)
+  } (and (97 <= digit) (digit <= 102)) {
+    return ((digit - 97) + 10)
+  }
+  error digit 'is not a hexadecimal digit'
+}
+
+to percentDecode data {
+  hexDigits = (array 48 49 50 51 52 53 54 55 56 57 65 66 67 68 69 70)
+  result = (dataStream (newBinaryData (byteCount data)))
+  stream = (dataStream data)
+  while (not (atEnd stream)) {
+    c = (nextUInt8 stream)
+    if (c == 37) {
+      high = (unhex (nextUInt8 stream))
+      low = (unhex (nextUInt8 stream))
+      putUInt8 result ((high * 16) + low)
+    } else {
+      putUInt8 result c
+    }
+  }
+  if (isClass data 'String') {
+    return (stringContents result)
+  } else {
+    return (contents result)
+  }
+}
