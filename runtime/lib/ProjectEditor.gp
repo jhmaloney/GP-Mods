@@ -246,9 +246,6 @@ method selectClassAndInstance ProjectEditor aTargetClass {
 method saveProject ProjectEditor fName {
   if (and (isNil fName) (notNil fileName)) {
 	fName = fileName
-	if (beginsWith fName (gpExamplesFolder)) {
-	  fName = (join (gpFolder) '/' (filePart fileName))
-	}
   }
 
   if (isNil fName) {
