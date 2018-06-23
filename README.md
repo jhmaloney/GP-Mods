@@ -85,4 +85,3 @@ logo and encouraged to use the phrase "Based on GP" in your mod's title or about
 All source code in this repository is under the Mozilla Public License 2.0.
 You are allowed (and encouraged!) to fork and modify it, but you must share your
 changes
-
