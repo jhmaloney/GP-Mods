@@ -1141,7 +1141,7 @@ method addTurtle Page {
   addPart this t
 }
 
-method confirmToQuit Page {confirm this nil (join 'Are you sure' (newline) 'you want to quit GP?') nil nil 'exit'}
+method confirmToQuit Page {confirm this nil (join 'Are you sure' (newline) 'you want to quit?') nil nil 'exit'}
 
 // foreground layer
 
