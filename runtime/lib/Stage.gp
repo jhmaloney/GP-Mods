@@ -219,7 +219,7 @@ method exitPresentationMode Stage {
 method scriptingModeMenu Stage {
   page = (global 'page')
   menu = (menu 'Stage Menu' page)
-  addItem menu 'GP version...' 'showGPVersion'
+  addItem menu 'GP Mod version...' 'showGPModVersion'
   addLine menu
   addItem menu 'show all' (action 'showAll' this) 'move any offscreen objects back into view'
   addItem menu 'normal stage size' (action 'normalStageSize' this) 'make the stage be normal size'
