@@ -1086,8 +1086,8 @@ method rightClicked Page {
 // context menu
 
 method contextMenu Page {
-  menu = (menu 'GP' this)
-  addItem menu 'GP Mod version...' 'showModGPVersion'
+  menu = (menu 'GP Mod' this)
+  addItem menu 'GP Mod version...' 'showGPModVersion'
   addLine menu
   addItem menu 'show all' 'showAll' 'move any offscreen objects back into view'
   if (devMode) {
