@@ -11,8 +11,8 @@ to recover baseFilename {
   baseFilename = (withoutExtension (filePart baseFilename))
   gc // dispose of unreachable projects
   for editor (allInstances 'ProjectEditor') {
-	fileName = (uniqueNameNotIn (listFiles (gpFolder)) baseFilename 'gpp')
-	saveProject (project editor) (join (gpFolder) '/' fileName)
+	fileName = (uniqueNameNotIn (listFiles (gpModFolder)) baseFilename 'gpp')
+	saveProject (project editor) (join (gpModFolder) '/' fileName)
   }
 }
 
@@ -246,9 +246,6 @@ method selectClassAndInstance ProjectEditor aTargetClass {
 method saveProject ProjectEditor fName {
   if (and (isNil fName) (notNil fileName)) {
 	fName = fileName
-	if (beginsWith fName (gpExamplesFolder)) {
-	  fName = (join (gpFolder) '/' (filePart fileName))
-	}
   }
 
   if (isNil fName) {
@@ -267,8 +264,8 @@ method saveProject ProjectEditor fName {
   if (and
 	(not (isAbsolutePath this fName))
 	(not (beginsWith fName 'http://'))
-	(not (beginsWith fName (gpFolder)))) {
-	  fName = (join (gpFolder) '/' fName)
+	(not (beginsWith fName (gpModFolder)))) {
+	  fName = (join (gpModFolder) '/' fName)
   }
   if (not (or (endsWith fName '.gpp') (endsWith fName '.gpe'))) { fName = (join fName '.gpp') }
 
@@ -485,10 +482,10 @@ method importMediaFile ProjectEditor type {
 	browserFileImport
   } else {
 	if ('image' == type) {
-	  if (isNil imagesFolder) { imagesFolder = (gpFolder) }
+	  if (isNil imagesFolder) { imagesFolder = (gpModFolder) }
 	  pickFileToOpen (action 'importImageNamed' this) imagesFolder (array '.png' '.jpg' '.jpeg')
 	} ('sound' == type) {
-	  if (isNil soundsFolder) { soundsFolder = (gpFolder) }
+	  if (isNil soundsFolder) { soundsFolder = (gpModFolder) }
 	  pickFileToOpen (action 'importSoundNamed' this) soundsFolder '.wav'
 	}
   }
