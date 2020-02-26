@@ -43,25 +43,25 @@ to pickFile anAction defaultPath extensionList saveFlag {
   }
 }
 
-// function to return the user's GP folder
+// function to return the user's GP Mod folder
 
-to gpFolder {
+to gpModFolder {
   if ('iOS' == (platform)) { return '.' }
   path = (userHomePath)
 
   hidden = (global 'hideFolderShortcuts')
-  if (and (notNil hidden) (contains hidden 'GP')) { return '/' } // if GP hidden, use computer
+  if (and (notNil hidden) (contains hidden 'GP Mod')) { return '/' } // if GP Mdd hidden, use computer
 
   // Look for <home>/Documents
   if (contains (listDirectories path) 'Documents') {
 	path = (join path '/Documents')
   }
-  if (not (contains (listDirectories path) 'GP')) {
-	// create the GP folder if it does not already exist
-	makeDirectory (join path '/GP')
+  if (not (contains (listDirectories path) 'GP Mod')) {
+	// create the GP Mod folder if it does not already exist
+	makeDirectory (join path '/GP Mod')
   }
-  if (contains (listDirectories path) 'GP') {
-	path = (join path '/GP')
+  if (contains (listDirectories path) 'GP Mod') {
+	path = (join path '/GP Mod')
   }
   return path
 }
@@ -171,8 +171,8 @@ method addShortcutButtons FilePicker {
   hidden = (global 'hideFolderShortcuts')
   if (isNil hidden) { hidden = (array) }
 
-  showGP = (and
-	(not (contains hidden 'GP'))
+  showGPMod = (and
+	(not (contains hidden 'GP Mod'))
 	('Browser' != (platform)))
   showDesktop = (not (contains hidden 'Desktop'))
   showDownloads = (and
@@ -183,8 +183,8 @@ method addShortcutButtons FilePicker {
   buttonX = ((left morph) + (22 * scale))
   buttonY = ((top morph) + (55 * scale))
   dy = (60 * scale)
-  if showGP {
-	addIconButton this buttonX buttonY 'gpFolderIcon' (action 'setGPFolder' this) 'GP'
+  if showGPMod {
+	addIconButton this buttonX buttonY 'gpFolderIcon' (action 'setGPModFolder' this) 'GP Mod'
 	buttonY += dy
   }
   if (not (isOneOf (platform) 'Browser' 'iOS')) {
@@ -251,8 +251,8 @@ method setDownloads FilePicker {
   showFolder this (join (userHomePath) '/Downloads') true
 }
 
-method setGPFolder FilePicker {
-  showFolder this (gpFolder) true
+method setGPModFolder FilePicker {
+  showFolder this (gpModFolder) true
 }
 
 method parentFolder FilePicker {
