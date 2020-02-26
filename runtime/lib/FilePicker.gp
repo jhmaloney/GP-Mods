@@ -66,10 +66,6 @@ to gpFolder {
   return path
 }
 
-to gpExamplesFolder {
-  return (join (absolutePath '.') '/Examples')
-}
-
 // support for synchronous ("modal") calls
 
 method destroyedMorph FilePicker { isDone = true }
@@ -178,11 +174,6 @@ method addShortcutButtons FilePicker {
   showGP = (and
 	(not (contains hidden 'GP'))
 	('Browser' != (platform)))
-  showExamples = (and
-	(not (contains hidden 'Examples'))
-	(not forSaving)
-	(isClass extensions 'Array')
-	(contains extensions '.gpp'))
   showDesktop = (not (contains hidden 'Desktop'))
   showDownloads = (and
 	(not (contains hidden 'Downloads'))
@@ -194,10 +185,6 @@ method addShortcutButtons FilePicker {
   dy = (60 * scale)
   if showGP {
 	addIconButton this buttonX buttonY 'gpFolderIcon' (action 'setGPFolder' this) 'GP'
-	buttonY += dy
-  }
-  if showExamples {
-	addIconButton this buttonX buttonY 'examplesIcon' (action 'setExamples' this)
 	buttonY += dy
   }
   if (not (isOneOf (platform) 'Browser' 'iOS')) {
@@ -262,10 +249,6 @@ method setDesktop FilePicker {
 
 method setDownloads FilePicker {
   showFolder this (join (userHomePath) '/Downloads') true
-}
-
-method setExamples FilePicker {
-  showFolder this (gpExamplesFolder) true
 }
 
 method setGPFolder FilePicker {
@@ -527,42 +510,6 @@ EXOhy067usJqu8xrS4t4qairQu5BvacZToEFpDilKNnSlf+B3V/8bnCz3vrJuNV+KpihrEKAGGrMW9JK
 gEopCoUJS0uvUSGUEqhFyNEZhLU5kEKBAlkiVRBCZbQrHU5ECngMxGHlbmsEAjB/73fuB74JjPjf6TfH
 n/jxz+RyIa4Hrgc2AvF9XtiAS8BFYElYc6Fm7euby0DvpxxIQHv5+MHqX/OFuc65fm3hAAAAAElFTkSu
 QmCC'
-  return (readFrom (new 'PNGReader') (base64Decode data))
-}
-
-method examplesIcon FilePickerIcons {
-  data = '
-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
-jvGZAAAAAElFTkSuQmCC'
   return (readFrom (new 'PNGReader') (base64Decode data))
 }
 
