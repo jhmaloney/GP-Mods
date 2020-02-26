@@ -22,7 +22,7 @@ to emptyProject {
 
 method initialize Project {
   pages = (list (newProjectPage (list)))
-  images = (list (makeShip this) (makeGPModLogo this))
+  images = (list (makeShip this) (makeGPLogo this))
   sounds = (list (makePopSound this))
   notes = ''
   blockSpecs = (dictionary) // op -> blockSpec
@@ -685,29 +685,25 @@ method removeClassFromPages Project aClass {
 
 method makeShip Project {
   data = 'iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAYAAABe3VzdAAABmElEQVR4nGNgZ2f/D8V/1dTUDoiLiycw
-  MDDwMAwWwMnJ+RvJkWAsICDwGejYBTw8PA5AJYwD6kBlZeUOkKO4ZLn+S1aL/eez4P3PzoFwrJSU1COg
-  mnYWFhblgXIjm6Ki4mWQY0Rihf4r75P7r7BS5r9YhvB/bgUulJBVUVE5LSEhkcpA7yQAjGYzcFRzsv+X
-  nSIJdiQY75X7LztZ8r9QgMB/TgFOuEP5+Pi+qaurrwQmBR+gdia6OBIW1dwq3P+VtssiHAnFIDHJxoFN
-  AhhRjQsPWBLAGdW48EAkAVB04YtqXJieSQAR1TH4o3rAkgDJUT0QSYDcqKZnEqA4qmmeBGBRzcHJ8V92
-  uhRVHQlLAjITJP4LevH/5+TnwNUWIBjV4AKcRxUY1Tsoj2pcWHGLzH/JSmASMOZBSQJD24GDPYqJrvoG
-  JJOgNB6oELVULWYGe0FNcdTStKojN2rp0lgY7M2twd1gBUZDJ76oHdAm/2DvNA3ubie84y7N+V+iWBSj
-  LpSRkbkP9EADMAqV6OYoZDDohz4G++ARAFGPsWx+VWYhAAAAAElFTkSuQmCC'
+MDDwMAwWwMnJ+RvJkWAsICDwGejYBTw8PA5AJYwD6kBlZeUOkKO4ZLn+S1aL/eez4P3PzoFwrJSU1COg
+mnYWFhblgXIjm6Ki4mWQY0Rihf4r75P7r7BS5r9YhvB/bgUulJBVUVE5LSEhkcpA7yQAjGYzcFRzsv+X
+nSIJdiQY75X7LztZ8r9QgMB/TgFOuEP5+Pi+qaurrwQmBR+gdia6OBIW1dwq3P+VtssiHAnFIDHJxoFN
+AhhRjQsPWBLAGdW48EAkAVB04YtqXJieSQAR1TH4o3rAkgDJUT0QSYDcqKZnEqA4qmmeBGBRzcHJ8V92
+uhRVHQlLAjITJP4LevH/5+TnwNUWIBjV4AKcRxUY1Tsoj2pcWHGLzH/JSmASMOZBSQJD24GDPYqJrvoG
+JJOgNB6oELVULWYGe0FNcdTStKojN2rp0lgY7M2twd1gBUZDJ76oHdAm/2DvNA3ubie84y7N+V+iWBSj
+LpSRkbkP9EADMAqV6OYoZDDohz4G++ARAFGPsWx+VWYhAAAAAElFTkSuQmCC'
   bm = (readFrom (new 'PNGReader') (base64Decode data))
   setName bm 'ship'
   return bm
 }
 
-method makeGPModLogo Project {
+method makeGPLogo Project {
   bm = (newBitmap 100 100)
-  c = (color 64 192 48)
   fillRoundedRect (newVectorPen bm) (rect 1 1 99 99) 10 (gray 250) 2 (gray 0)
-  fillRoundedRect (newVectorPen bm) (rect 1 1 99 65) 10 (gray 250) 2 (gray 0)
-  floodFill bm 50 90 (gray 0) 7
-  drawBlock (newShapeMaker bm) 2 67 97 29 (gray 250) 3 2 4 1
-  setFont 'Verdana' 50
-  drawString bm 'GP' c 4 -9
-  setFont 'Verdana Bold' 16
-  drawString bm 'MOD' c 25 66
+  setFont 'Verdana' 66
+  c = (color 56 191 40)
+  drawString bm 'G' c 6 8
+  drawString bm 'P' c 55 8
   setName bm 'GP'
   return bm
 }

@@ -981,18 +981,26 @@ method browseImplementors Block {
 }
 
 method openClassBrowser Block className {
+  if ('<generic>' == className) {
+	page = (global 'page')
+	brs = (newClassBrowser)
+	setPosition (morph brs) (x (hand page)) (y (hand page))
+	addPart page brs
+    browse brs (globalBlocksName brs) (functionNamed (primName expression) (topLevelModule))
+    return
+  }
   editor = (ownerThatIsA morph 'ProjectEditor')
   if (notNil editor) {
-    cl = (classNamed (module (project (handler editor))) className)
+	cl = (classNamed (module (project (handler editor))) className)
   }
-  if (isNil cl) { cl = className }
+  if (isNil cl) { cl = (class className) }
   browseClass cl (primName expression)
 }
 
 method showDefinition Block {
-  pe = (ownerThatIsA morph 'ProjectEditor')
+  pe = (findProjectEditor)
   if (isNil pe) { return }
-  scripter = (scripter (handler pe))
+  scripter = (scripter pe)
   targetClass = (targetClass scripter)
   if (isNil targetClass) { return }
   calledFunction = (primName expression)
@@ -1001,7 +1009,7 @@ method showDefinition Block {
 	if (notNil (methodNamed targetClass calledFunction)) {
 	  ref = (newCommand 'method' calledFunction (className targetClass))
 	} else {
-	  f = (functionNamed (module (project (handler pe))) calledFunction)
+	  f = (functionNamed (module (project pe)) calledFunction)
 	  if (isNil f) { return } // shouldn't happen
 	  ref = (newCommand 'to' calledFunction)
 	}
@@ -1368,6 +1376,7 @@ to blockForFunction aFunction {
 
 to blockForSpec spec {
   block = (new 'Block')
+  spec = (translateToCurrentLanguage (authoringSpecs) spec)
   initializeForSpec block spec
   return block
 }

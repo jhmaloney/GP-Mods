@@ -45,7 +45,7 @@ method initialize InputSlot default editRule blockColor slotMenu {
   } else {
     menuSelector = slotMenu
   }
-  isStatic = (isOneOf menuSelector 'sharedVarMenu' 'myVarMenu' 'localVarMenu' 'propertyMenu')
+  isStatic = (isOneOf menuSelector 'sharedVarMenu' 'myVarMenu' 'localVarMenu' 'allVarsMenu' 'propertyMenu')
   fixLayout this
   return this
 }
@@ -306,6 +306,33 @@ method myVarMenu InputSlot {
 method localVarMenu InputSlot {
   menu = (menu nil (action 'setContents' this) true)
 
+  myBlock = (handler (ownerThatIsA morph 'Block'))
+  localVars = (collectLocals (expression (topBlock myBlock)))
+  for field (fieldNames (classOf targetObj)) { remove localVars field }
+  if (notEmpty localVars) {
+	localVars = (sorted (keys localVars))
+	for varName localVars {
+	  addItem menu varName varName
+	}
+  }
+  return menu
+}
+
+method allVarsMenu InputSlot {
+  menu = (menu nil (action 'setContents' this) true)
+
+  // shared vars
+  scripter = (ownerThatIsA morph 'Scripter')
+  if (isNil scripter) { scripter = (ownerThatIsA morph 'MicroBlocksScripter') }
+  if (notNil scripter) {
+	varNames = (copyWithout (variableNames (targetModule (handler scripter))) 'extensions')
+	for varName varNames {
+	  addItem menu varName varName
+	}
+	if ((count varNames) > 0) { addLine menu }
+  }
+
+  // local vars
   myBlock = (handler (ownerThatIsA morph 'Block'))
   localVars = (collectLocals (expression (topBlock myBlock)))
   for field (fieldNames (classOf targetObj)) { remove localVars field }

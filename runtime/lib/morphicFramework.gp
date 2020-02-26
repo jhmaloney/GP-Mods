@@ -663,7 +663,6 @@ method open Page tryRetina title {
   setGlobal 'stealthBlocks' false
   setGlobal 'stealthLevel' -50
   setClipping morph true
-  if (isNil title) { title = 'GP Mod - Based on GP Blocks' }
   openWindow (width morph) (height morph) tryRetina title
   winSize = (windowSize)
   setExtent morph (at winSize 3) (at winSize 4) // actual extent
@@ -826,17 +825,21 @@ to getNextEvent {
 method processWindowEvent Page evt {
   scale = (global 'scale')
   id = (at evt 'eventID')
-  if (id != 5) {return}
+  if (isOneOf id 5 6) {
+	// note: things can break if w or h is less than 1
+	w = (scale * (max 1 (at evt 'data1')))
+	h = (scale * (max 1 (at evt 'data2')))
 
-  // note: things can break if w or h is less than 1
-  w = (scale * (max 1 (at evt 'data1')))
-  h = (scale * (max 1 (at evt 'data2')))
-
-  clearBuffer color
-  flipBuffer
-  setPosition morph 0 0
-  setExtent morph w h
-  for each (parts morph) {pageResized (handler each) w h this}
+	clearBuffer color
+	flipBuffer
+	setPosition morph 0 0
+	setExtent morph w h
+	isChanged = true
+	for each (parts morph) {pageResized (handler each) w h this}
+  } else {
+	isChanged = true
+	for each (parts morph) {pageResized (handler each) w h this}
+  }
 }
 
 method setWindowSize Page w h {
@@ -1083,8 +1086,8 @@ method rightClicked Page {
 // context menu
 
 method contextMenu Page {
-  menu = (menu 'GP Mod' this)
-  addItem menu 'GP Mod version...' 'showGPModVersion'
+  menu = (menu 'GP' this)
+  addItem menu 'GP version...' 'showGPVersion'
   addLine menu
   addItem menu 'show all' 'showAll' 'move any offscreen objects back into view'
   if (devMode) {
@@ -1115,8 +1118,8 @@ method contextMenu Page {
   return menu
 }
 
-method showGPModVersion Page {
-  inform this (join 'GP Mod Version ' (libraryVersion) (newline) (at (version) 1))
+method showGPVersion Page {
+  inform this (join 'GP Version ' (libraryVersion) (newline) (at (version) 1))
 }
 
 method broadcastGo Page { stopAll this; broadcast 'go' }
@@ -1138,7 +1141,7 @@ method addTurtle Page {
   addPart this t
 }
 
-method confirmToQuit Page {confirm this nil (join 'Are you sure' (newline) 'you want to quit?') nil nil 'exit'}
+method confirmToQuit Page {confirm this nil (join 'Are you sure' (newline) 'you want to quit GP?') nil nil 'exit'}
 
 // foreground layer
 

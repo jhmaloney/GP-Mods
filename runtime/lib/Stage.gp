@@ -219,7 +219,7 @@ method exitPresentationMode Stage {
 method scriptingModeMenu Stage {
   page = (global 'page')
   menu = (menu 'Stage Menu' page)
-  addItem menu 'GP Mod version...' 'showGPModVersion'
+  addItem menu 'GP version...' 'showGPVersion'
   addLine menu
   addItem menu 'show all' (action 'showAll' this) 'move any offscreen objects back into view'
   addItem menu 'normal stage size' (action 'normalStageSize' this) 'make the stage be normal size'
@@ -277,7 +277,7 @@ method normalStageSize Stage {
 }
 
 method loadExtension Stage {
-  pickFileToOpen (action 'loadExtensionFileNamed' this) (userHomePath)  (array '.gpp' '.gpe')
+  pickFileToOpen (action 'loadExtensionFileNamed' this) (gpFolder)  (array '.gpp' '.gpe')
 }
 
 method loadExtensionFileNamed Stage fName {
@@ -298,7 +298,7 @@ method loadExtensionFileNamed Stage fName {
 }
 
 method loadSourceFile Stage {
-  pickFileToOpen (action 'reloadSourceFileNamed' this) (userHomePath) '.gp'
+  pickFileToOpen (action 'reloadSourceFileNamed' this) (gpFolder) '.gp'
 }
 
 method reloadSourceFileNamed Stage fName {

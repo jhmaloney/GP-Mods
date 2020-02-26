@@ -338,6 +338,8 @@ method specDefinitionString BlockSpec className {
 	if (notNil className) { atPut slotTypes 1 className } // for methods, first type is the class name
 	add result (printString (joinStrings slotTypes ' '))
 	for v defaultValues { add result v }
+  } else {
+	add result (printString '') // empty slot type string
   }
   return (joinStrings result ' ')
 }

@@ -1,4 +1,4 @@
-defineClass AuthoringSpecs specsList specsByOp opCategory
+defineClass AuthoringSpecs specsList specsByOp opCategory language translationDictionary
 
 method allOpNames AuthoringSpecs {
   result = (toList (keys specsByOp))
@@ -24,6 +24,8 @@ method clear AuthoringSpecs {
   specsList = (list)
   specsByOp = (dictionary)
   opCategory = (dictionary)
+  language = 'English'
+  translationDictionary = nil
   return this
 }
 
@@ -94,7 +96,7 @@ method specForOp AuthoringSpecs op cmdOrReporter {
   }
   if (isEmpty matchingSpecs) { return nil }
   if (or ((count matchingSpecs) == 1) (isNil cmdOrReporter)) {
-	return (first matchingSpecs)
+	return (translateToCurrentLanguage this (first matchingSpecs))
   }
 
   // filter by block type
@@ -105,7 +107,7 @@ method specForOp AuthoringSpecs op cmdOrReporter {
 		add filtered s
 	}
   }
-  if ((count filtered) == 1) { return (first filtered) } // unique match
+  if ((count filtered) == 1) { return (translateToCurrentLanguage this (first filtered)) } // unique match
   if (isEmpty filtered) { filtered = matchingSpecs } // revert if no matches
 
   // filter by arg count
@@ -116,8 +118,8 @@ method specForOp AuthoringSpecs op cmdOrReporter {
 		add filtered2 s
 	}
   }
-  if ((count filtered2) > 0) { return (first filtered2) }
-  return (first filtered)
+  if ((count filtered2) > 0) { return (translateToCurrentLanguage this (first filtered2)) }
+  return (translateToCurrentLanguage this (first filtered))
 }
 
 method specsFor AuthoringSpecs category {
@@ -227,6 +229,66 @@ to fixBlockColors {
 	if (isNil textColor) { textColor = (gray 0) }
 	for m (parts (morph b)) {
 	  if (isClass (handler m) 'Text') { setColor (handler m) textColor }
+	}
+  }
+}
+
+// translation
+
+method language AuthoringSpecs { return language }
+
+method setLanguage AuthoringSpecs newLang {
+  translationData = (readEmbeddedFile (join 'translations/' newLang '.txt'))
+  if (isNil translationData) {
+	// if not embedded file, try reading external file
+	translationData = (readFile (join 'translations/' newLang '.txt'))
+  }
+  if (isNil translationData) {
+	language = 'English'
+	translationDictionary = nil
+  } else {
+	language = newLang
+	installTranslation this translationData
+  }
+}
+
+method translateToCurrentLanguage AuthoringSpecs spec {
+  if (not (needsTranslation this spec)) { return spec }
+
+  newSpecStrings = (list)
+  for s (specs spec) {
+	add newSpecStrings (at translationDictionary s s)
+  }
+  result = (clone spec)
+  setField result 'specs' newSpecStrings
+  return result
+}
+
+method needsTranslation AuthoringSpecs spec {
+  // Return true if any of the spec strings of spec needs to be translated.
+
+  if (isNil translationDictionary) { return false }
+  for s (specs spec) {
+	if (contains translationDictionary s) { return true }
+  }
+  return false
+}
+
+method installTranslation AuthoringSpecs translationData {
+  // Translations data is string consisting of three-line entries:
+  //	original string
+  //	translated string
+  //	<blank line>
+  //	...
+
+  translationDictionary = (dictionary)
+  lines = (toList (lines translationData))
+  while ((count lines) >= 2) {
+	from = (removeFirst lines)
+	to = (removeFirst lines)
+	atPut translationDictionary from to
+	while (and ((count lines) > 0) ((removeFirst lines) != '')) {
+	  // skip lines until the next blank line
 	}
   }
 }
@@ -467,7 +529,7 @@ Line 2')
 	  (array ' ' 'self_placePart'		'place part _ left inset _ top inset _' 'obj num num' nil 10 10)
 
 	'Looks'
-	  (array ' ' 'self_setCostume'		'set costume to _' 'menu.imageMenu' 'ship')
+	  (array ' ' 'self_setCostume'		'set costume to _' 'menu.imageMenu' 'GP')
 	  (array ' ' 'self_setTextCostume'	'set text costume _ : color _ : fontName _ fontSize _' 'auto color str num' 'Hello!' nil 'Arial Bold Italic' 120)
 	  (array ' ' 'self_show'			'show')
 	  (array ' ' 'self_hide'			'hide')
@@ -479,10 +541,10 @@ Line 2')
 	  (array ' ' 'self_comeToFront'		'come to front')
 	  (array ' ' 'self_goBackBy'		'go back by _' 'num' 1)
 	  (array ' ' 'self_setTransparency'	'set transparency _' 'num' 50)
-	  (array 'r' 'self_getWidth'		'width : of _' 'menu.imageMenu' 'ship')
-	  (array 'r' 'self_getHeight'		'height : of _' 'menu.imageMenu' 'ship')
-	  (array ' ' 'self_setStageColor'	'set background color _ : image _' 'color menu.imageMenu' nil 'ship')
-	  (array 'r' 'self_costume'			'costume : _' 'menu.imageMenu' 'ship')
+	  (array 'r' 'self_getWidth'		'width : of _' 'menu.imageMenu' 'GP')
+	  (array 'r' 'self_getHeight'		'height : of _' 'menu.imageMenu' 'GP')
+	  (array ' ' 'self_setStageColor'	'set background color _ : image _' 'color menu.imageMenu' nil 'GP')
+	  (array 'r' 'self_costume'			'costume : _' 'menu.imageMenu' 'GP')
 	  (array ' ' 'self_snapshotCostume'	'snapshot costume : as _' 'str' 'snapshot')
 	  (array ' ' 'self_snapshotStage'	'snapshot stage : as _' 'str' 'snapshot')
 	  (array ' ' 'self_setPinXY'		'set rotation point x _ y _' 'num num' 0 0)
@@ -493,11 +555,11 @@ Line 2')
 	  (array ' ' 'self_fillRect'		'fill rectangle x _ y _ w _ h _ _ : roundness _' 'num num num num color num' 10 10 50 50 nil 8)
 	  (array ' ' 'self_fillCircle'		'fill circle center x _ y _ radius _ _ : border _ _' 'num num num color num color' 50 50 30 nil 4)
 	  (array ' ' 'self_drawLine'		'draw line from _ _ to _ _ _ : width _' 'num num num num color num' 0 0 100 150 nil 3)
-	  (array ' ' 'self_drawBitmap'		'draw image _ : x _ y _ : scale _ : alpha _' 'menu.imageMenu num num num num' 'ship' 0 0 1 255)
+	  (array ' ' 'self_drawBitmap'		'draw image _ : x _ y _ : scale _ : alpha _' 'menu.imageMenu num num num num' 'GP' 0 0 1 255)
 	  (array 'r' 'randomColor'			'random color')
 	  (array 'r' 'transparent'			'transparent')
-	  (array 'r' 'self_getWidth'		'width : of _' 'menu.imageMenu' 'ship')
-	  (array 'r' 'self_getHeight'		'height : of _' 'menu.imageMenu' 'ship')
+	  (array 'r' 'self_getWidth'		'width : of _' 'menu.imageMenu' 'GP')
+	  (array 'r' 'self_getHeight'		'height : of _' 'menu.imageMenu' 'GP')
 	  (array ' ' 'self_setFont'			'set font name _ : size _' 'str num' 'Arial' 24)
 	  (array 'r' 'fontHeight'			'font height')
 	  (array 'r' 'stringWidth'			'string width _' 'str' 'Hello!')
@@ -531,9 +593,9 @@ Line 2')
 
 	'Pixels'
 	  (array ' ' 'self_createCostume'	'set width _ height _ : fill _ ' 'num num color' 100 100)
-	  (array ' ' 'self_copycostume'	'copy costume from _' 'menu.imageMenu' 'ship')
-	  (array 'r' 'self_getPixels'	'pixels : from _' 'menu.imageMenu' 'ship')
-	  (array 'r' 'self_getPixelXY'	'pixel at x _ y _ : from _ ' 'num num menu.imageMenu' 1 1 'ship')
+	  (array ' ' 'self_copycostume'	'copy costume from _' 'menu.imageMenu' 'GP')
+	  (array 'r' 'self_getPixels'	'pixels : from _' 'menu.imageMenu' 'GP')
+	  (array 'r' 'self_getPixelXY'	'pixel at x _ y _ : from _ ' 'num num menu.imageMenu' 1 1 'GP')
 	  (array 'r' 'getRed'			'red of _' 'pixel' nil)
 	  (array 'r' 'getGreen'			'green of _' 'pixel' nil)
 	  (array 'r' 'getBlue'			'blue of _' 'pixel' nil)
@@ -547,8 +609,8 @@ Line 2')
 	  (array ' ' 'setColor'			'set color of _ to _' 'pixel color' nil)
 	  (array 'r' 'randomColor'		'random color')
 	  (array 'r' 'transparent'		'transparent')
-	  (array 'r' 'self_getWidth'	'width : of _' 'menu.imageMenu' 'ship')
-	  (array 'r' 'self_getHeight'	'height : of _' 'menu.imageMenu' 'ship')
+	  (array 'r' 'self_getWidth'	'width : of _' 'menu.imageMenu' 'GP')
+	  (array 'r' 'self_getHeight'	'height : of _' 'menu.imageMenu' 'GP')
 	  (array 'r' 'self_getPixel'	'pixel color at x _ y _ : in _ ' 'num num image' 1 1)
 	  (array ' ' 'self_setPixel'	'set pixel color at x _ y _ to _ : in _' 'num num color image' 1 1)
 
