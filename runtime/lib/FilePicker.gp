@@ -50,7 +50,7 @@ to gpModFolder {
   path = (userHomePath)
 
   hidden = (global 'hideFolderShortcuts')
-  if (and (notNil hidden) (contains hidden 'GP Mod')) { return '/' } // if GP Mdd hidden, use computer
+  if (and (notNil hidden) (contains hidden 'GP Mod')) { return '/' } // if GP Mod hidden, use computer
 
   // Look for <home>/Documents
   if (contains (listDirectories path) 'Documents') {
@@ -115,7 +115,7 @@ method initialize FilePicker anAction defaultPath extensionList saveFlag {
 
   if forSaving {
 	defaultPath = (directoryPart defaultPath)
-	if (isEmpty defaultPath) { defaultPath = (gpFolder) }
+	if (isEmpty defaultPath) { defaultPath = (gpModFolder) }
 	if ('Browser' == (platform)) { defaultPath = 'Downloads' }
   }
   if (and ((count defaultPath) > 1) (endsWith defaultPath '/')) {
@@ -184,7 +184,7 @@ method addShortcutButtons FilePicker {
   buttonY = ((top morph) + (55 * scale))
   dy = (60 * scale)
   if showGPMod {
-	addIconButton this buttonX buttonY 'gpFolderIcon' (action 'setGPModFolder' this) 'GP Mod'
+	addIconButton this buttonX buttonY 'gpModFolderIcon' (action 'setGPModFolder' this) 'GP Mod'
 	buttonY += dy
   }
   if (not (isOneOf (platform) 'Browser' 'iOS')) {
@@ -513,7 +513,7 @@ QmCC'
   return (readFrom (new 'PNGReader') (base64Decode data))
 }
 
-method gpFolderIcon FilePickerIcons {
+method gpModFolderIcon FilePickerIcons {
   data = '
 iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAGeUlEQVR4nO2W28umVRnGf/e91nreb+ZT
 ZyMlbsZtGyEdEwqCbEMH0saUDPTAjoLoLwgi25BBBJ11Fh11IFGgWRCFB4kRHnnQ2ZibHCgRsnBmvvne
