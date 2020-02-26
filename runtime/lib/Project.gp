@@ -22,7 +22,7 @@ to emptyProject {
 
 method initialize Project {
   pages = (list (newProjectPage (list)))
-  images = (list (makeShip this) (makeGPLogo this))
+  images = (list (makeShip this) (makeGPModLogo this))
   sounds = (list (makePopSound this))
   notes = ''
   blockSpecs = (dictionary) // op -> blockSpec
@@ -697,7 +697,7 @@ LpSRkbkP9EADMAqV6OYoZDDohz4G++ARAFGPsWx+VWYhAAAAAElFTkSuQmCC'
   return bm
 }
 
-method makeGPLogo Project {
+method makeGPModLogo Project {
   bm = (newBitmap 100 100)
   fillRoundedRect (newVectorPen bm) (rect 1 1 99 99) 10 (gray 250) 2 (gray 0)
   setFont 'Verdana' 66
