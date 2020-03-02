@@ -1,4 +1,4 @@
-// Project.gp - A GP project, including it's pages, media. and notes
+// Project.gp - A GP project, including it's pages, media. and notes.
 
 defineClass Project pages images sounds notes projectVars blockSpecs paletteBlocks extraCategories module hash ancestor dependencies thumbnail
 
@@ -78,7 +78,7 @@ method readProject Project data {
   scriptData = nil
   morphData = nil
   gc
-  
+
   pages = (list)
   if (isClass project 'Table') { // old format: Table of pages
 	for r (rowCount project) {
@@ -118,7 +118,7 @@ method readProject Project data {
 
 method convertToStageCoordinates Project morphList {
   // Convert the given morphs to stage coordinates (i.e. origin at center of stage).
-  
+
   if (isEmpty morphList) { return }
   overallBounds = (copy (bounds (first morphList)))
   for m morphList { merge overallBounds (bounds m) }
@@ -132,7 +132,7 @@ method convertToStageCoordinates Project morphList {
 method installScripts Project scriptData {
   cmds = (toList (parse scriptData))
   if (isEmpty cmds) { return }
-  
+
   myClass = nil
   scripts = (list)
   for cmd cmds {
@@ -181,7 +181,7 @@ method projectData1 Project {
   }
   serializedData = (write (new 'Serializer') this (keys objectsToOmit))
   projectVars = nil
-  
+
   // make and save zip file
   zip = (create (new 'ZipFile'))
   addFile zip 'objects.gpod' serializedData true
@@ -208,8 +208,8 @@ method readProject2 Project data {
   morphData = (extractNestedFile zip 'objects.gpod')
   modules = (dictionary)
   dependencies = (list)
+
   for f (fileNames zip) {
-  
     if (beginsWith f 'modules/') {
       data = (extractFile zip f)
       data = (stringFromByteRange data 1 (byteCount data))
@@ -225,14 +225,14 @@ method readProject2 Project data {
       myNotes = (toString (extractFile zip f))
     }
   }
+
   if (notNil morphData) {
-  
     project = (read (new 'Serializer2') morphData modules)
   }
-  
+
   myHash = (toString (extractFile zip 'hash'))
   myAncestor = (toString (extractFile zip 'ancestor'))
-  
+
   topHash = (toString (extractFile zip 'topHash'))
 // Note: The top level module changes often, so comment this out.
 // It is also slow and used memory to generate the code of the topLevelModule,
@@ -256,26 +256,26 @@ method readProject2 Project data {
 
 method saveProject Project fName thumb {
   // Save this project to a file with the given name.
-  
+
   data = (projectData2 this fName thumb)
   writeData this fName data
 }
 
 method projectData2 Project fName thumb {
   // Return the serialized data for this project using modules.
-  
+
   thumbnail = nil
   myNotes = notes
   if (isNil myNotes) { myNotes = '' }
   notes = nil
-  
+
   png = nil
   if (notNil thumb) {
     png = (encodePNG thumb)
   } else {
 	png = '' // needed for hash
   }
-  
+
   objectsToOmit = (dictionary)
   for p pages {
     for m (morphs p) {
@@ -285,7 +285,7 @@ method projectData2 Project fName thumb {
       preSerialize m
     }
   }
-  
+
   oldAncestor = ancestor
   oldHash = hash
   if (isNil oldHash) {
@@ -293,9 +293,9 @@ method projectData2 Project fName thumb {
   }
   ancestor = nil
   hash = nil
-  
+
   serializedData = (write (new 'Serializer2') this (keys objectsToOmit))
-  
+
   // make and save zip file
   zip = (create (new 'ZipFile'))
   objects = (at serializedData 1)
@@ -312,16 +312,16 @@ method projectData2 Project fName thumb {
     addFile zip (join 'modules/' m) (at dict m)
     // code for the modules that are found during serialization
   }
-  
+
   if (notNil dependencies) {
     // dependencies contains list of hashes of projects.
     for m dependencies {
       addFile zip (join 'dependencies/' m) ''
     }
   }
-  
+
   addFile zip 'topHash' topHash
-  
+
   data = (dataStream (newBinaryData (+ (byteCount objects) (byteCount oldHash) (byteCount topHash) (byteCount png) (byteCount myNotes))))
   nextPutAll data objects
   nextPutAll data oldHash
@@ -329,21 +329,22 @@ method projectData2 Project fName thumb {
   nextPutAll data png
   nextPutAll data myNotes
   data = (contents data)
-  
+
   ancestor = oldHash
   hash = (sha256 data)
   addFile zip 'hash' hash false
   addFile zip 'ancestor' ancestor false
-  
+
   notes = myNotes
   thumbnail = thumb
   return (contents zip)
 }
+
 method installScripts2 Project scriptData {
   cmds = (toList (parse scriptData))
   if (isEmpty cmds) { return }
+
   myClass = nil
-  
   scripts = (list)
   for cmd cmds {
     if ('defineClass' == (primName cmd)) {
@@ -452,7 +453,7 @@ method soundNames Project imageName {
 method saveImageAs Project bm name {
   // Add the given bitmap with given name to my images.
   // If name is nil or not a string, generate a unique name.
-  
+
   if (or (not (isClass name 'String')) ('' == name)) {
   	name = (uniqueNameNotIn (imageNames this) 'snapshot')
   }
@@ -465,7 +466,7 @@ method saveImageAs Project bm name {
 method saveSoundAs Project snd name {
   // Add the given sound with given name to my sounds.
   // If name is nil or not a string, generate a unique name.
-  
+
   if (or (not (isClass name 'String')) ('' == name)) {
   	name = (uniqueNameNotIn (soundNames this) 'sound')
   }
@@ -569,7 +570,7 @@ method removeEmptyExtraCategories Project {
 
 method importExtension Project extensionName extensionProj {
   callInitializer (module extensionProj)
-  
+
   // add extension block specs to this project
   extSpecs = (blockSpecs extensionProj)
   for op (keys extSpecs) {
@@ -579,7 +580,7 @@ method importExtension Project extensionName extensionProj {
 	  atPut blockSpecs op (at extSpecs op)
 	}
   }
-  
+
   // add extension blocks to palette
   extBlocks = (paletteBlocks extensionProj)
   for cat (keys extBlocks) {
@@ -604,7 +605,7 @@ method importExtension Project extensionName extensionProj {
 	  add extraCategories cat
 	}
   }
-  
+
   if (isNil dependencies) {dependencies = (list)}
   extHash = (toString (getField extensionProj 'hash'))
   depIndex = (indexOf dependencies extHash)
@@ -617,13 +618,13 @@ method createForwarderForImportedFunction Project op extension {
   // The given op refers to a generic function in the given extensionModule.
   // Create a forwarding function that extracts the function from the extension
   // module and calls it. Return the op of the new function.
-  
+
   extensions = (shared 'extensions' module )
   if (isNil extensions) { // create if needed
 	extensions = (array)
 	setShared 'extensions' extensions module
   }
-  
+
   extensionIndex = (indexOf extensions extension)
   if (isNil extensionIndex) {
 	// add extension to the shared extensions array
@@ -631,7 +632,7 @@ method createForwarderForImportedFunction Project op extension {
 	setShared 'extensions' extensions module
 	extensionIndex = (count extensions)
   }
-  
+
   // create a function to call function named 'op' in an extension module
   f = (copy (function {
 	op = 'nop' // to be filled in with actual op
@@ -640,12 +641,12 @@ method createForwarderForImportedFunction Project op extension {
 	if (isNil extensions) { return }
 	extensionModule = (at extensions extensionIndex)
 	realFunction = (functionNamed op extensionModule)
-	
+
 	argList = (list)
 	for i (argCount) { add argList (arg i) }
 	return (callWith realFunction (toArray argList))
   }))
-  
+
   // modify f to fill in the op and extension index
   for b (allBlocks (cmdList f)) {
 	if (and ('=' == (primName b)) (8 == (count b))) {
@@ -654,7 +655,7 @@ method createForwarderForImportedFunction Project op extension {
 	  if ('extensionIndex' == varName) { setField b 8 extensionIndex }
 	}
   }
-  
+
   // find an unused name for f and save it in this project's module
   existingNames = (list op)
   for existingFunc (join (functions) (functions module)) {
