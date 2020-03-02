@@ -1,5 +1,7 @@
 // Project.gp - A GP project, including it's pages, media. and notes.
+
 defineClass Project pages images sounds notes projectVars blockSpecs paletteBlocks extraCategories module hash ancestor dependencies thumbnail
+
 method pages Project { return pages }
 method images Project { return images }
 method sounds Project { return sounds }
@@ -13,9 +15,11 @@ method ancestor Project { return ancestor }
 method module Project { return module }
 method dependencies Project { return dependencies }
 method thumbnail Project { return thumbnail }
+
 to emptyProject {
   return (initialize (new 'Project'))
 }
+
 method initialize Project {
   pages = (list (newProjectPage (list)))
   images = (list (makeShip this) (makeGPModLogo this))
@@ -32,6 +36,7 @@ method initialize Project {
   dependencies = (list)
   return this
 }
+
 method initializeFrom Project project myHash myAncestor {
   pages = (pages project)
   images = (images project)
@@ -54,7 +59,9 @@ method initializeFrom Project project myHash myAncestor {
   }
   return this
 }
+
 // **** Read Project ****
+
 method readProject Project data {
   initialize this
   zip = (read (new 'ZipFile') data)
@@ -71,6 +78,7 @@ method readProject Project data {
   scriptData = nil
   morphData = nil
   gc
+  
   pages = (list)
   if (isClass project 'Table') { // old format: Table of pages
 	for r (rowCount project) {
@@ -105,9 +113,12 @@ method readProject Project data {
   gc
   return this
 }
+
 // **** Old project format open/save support ****
+
 method convertToStageCoordinates Project morphList {
   // Convert the given morphs to stage coordinates (i.e. origin at center of stage).
+  
   if (isEmpty morphList) { return }
   overallBounds = (copy (bounds (first morphList)))
   for m morphList { merge overallBounds (bounds m) }
@@ -117,9 +128,11 @@ method convertToStageCoordinates Project morphList {
 	setPosition m ((left m) - xCenter) ((top m) - yCenter)
   }
 }
+
 method installScripts Project scriptData {
   cmds = (toList (parse scriptData))
   if (isEmpty cmds) { return }
+  
   myClass = nil
   scripts = (list)
   for cmd cmds {
@@ -154,6 +167,7 @@ method installScripts Project scriptData {
     setScripts myClass scripts
   }
 }
+
 method projectData1 Project {
   // Return the serialized data for an old (non-module-based) project.
   objectsToOmit = (dictionary)
@@ -167,12 +181,14 @@ method projectData1 Project {
   }
   serializedData = (write (new 'Serializer') this (keys objectsToOmit))
   projectVars = nil
+  
   // make and save zip file
   zip = (create (new 'ZipFile'))
   addFile zip 'objects.gpod' serializedData true
   addFile zip 'scripts.txt' (collectScripts1 this) true
   return (contents zip)
 }
+
 method collectScripts1 Project {
   result = (list)
   for cl (classes) {
@@ -182,7 +198,9 @@ method collectScripts1 Project {
   }
   return (joinStrings result)
 }
+
 // **** New (module-based) project open/save ****
+
 method readProject2 Project data {
   initialize this
   zip = (read (new 'ZipFile') data)
@@ -191,6 +209,7 @@ method readProject2 Project data {
   modules = (dictionary)
   dependencies = (list)
   for f (fileNames zip) {
+  
     if (beginsWith f 'modules/') {
       data = (extractFile zip f)
       data = (stringFromByteRange data 1 (byteCount data))
@@ -207,10 +226,13 @@ method readProject2 Project data {
     }
   }
   if (notNil morphData) {
+  
     project = (read (new 'Serializer2') morphData modules)
   }
+  
   myHash = (toString (extractFile zip 'hash'))
   myAncestor = (toString (extractFile zip 'ancestor'))
+  
   topHash = (toString (extractFile zip 'topHash'))
 // Note: The top level module changes often, so comment this out.
 // It is also slow and used memory to generate the code of the topLevelModule,
@@ -218,6 +240,7 @@ method readProject2 Project data {
 //  if (topHash != (codeHash (topLevelModule))) {
 //	print 'This project was created on a different top level module.'
 //  }
+
   initializeFrom this project myHash myAncestor
   if (isEmpty pages) { pages = (list (newProjectPage (list))) }
   if (notNil scriptData) { installScripts2 this (toString scriptData) }
@@ -230,23 +253,29 @@ method readProject2 Project data {
   }
   return this
 }
+
 method saveProject Project fName thumb {
   // Save this project to a file with the given name.
+  
   data = (projectData2 this fName thumb)
   writeData this fName data
 }
+
 method projectData2 Project fName thumb {
   // Return the serialized data for this project using modules.
+  
   thumbnail = nil
   myNotes = notes
   if (isNil myNotes) { myNotes = '' }
   notes = nil
+  
   png = nil
   if (notNil thumb) {
     png = (encodePNG thumb)
   } else {
 	png = '' // needed for hash
   }
+  
   objectsToOmit = (dictionary)
   for p pages {
     for m (morphs p) {
@@ -256,6 +285,7 @@ method projectData2 Project fName thumb {
       preSerialize m
     }
   }
+  
   oldAncestor = ancestor
   oldHash = hash
   if (isNil oldHash) {
@@ -263,7 +293,9 @@ method projectData2 Project fName thumb {
   }
   ancestor = nil
   hash = nil
+  
   serializedData = (write (new 'Serializer2') this (keys objectsToOmit))
+  
   // make and save zip file
   zip = (create (new 'ZipFile'))
   objects = (at serializedData 1)
@@ -280,13 +312,16 @@ method projectData2 Project fName thumb {
     addFile zip (join 'modules/' m) (at dict m)
     // code for the modules that are found during serialization
   }
+  
   if (notNil dependencies) {
     // dependencies contains list of hashes of projects.
     for m dependencies {
       addFile zip (join 'dependencies/' m) ''
     }
   }
+  
   addFile zip 'topHash' topHash
+  
   data = (dataStream (newBinaryData (+ (byteCount objects) (byteCount oldHash) (byteCount topHash) (byteCount png) (byteCount myNotes))))
   nextPutAll data objects
   nextPutAll data oldHash
@@ -294,10 +329,12 @@ method projectData2 Project fName thumb {
   nextPutAll data png
   nextPutAll data myNotes
   data = (contents data)
+  
   ancestor = oldHash
   hash = (sha256 data)
   addFile zip 'hash' hash false
   addFile zip 'ancestor' ancestor false
+  
   notes = myNotes
   thumbnail = thumb
   return (contents zip)
@@ -306,6 +343,7 @@ method installScripts2 Project scriptData {
   cmds = (toList (parse scriptData))
   if (isEmpty cmds) { return }
   myClass = nil
+  
   scripts = (list)
   for cmd cmds {
     if ('defineClass' == (primName cmd)) {
@@ -341,6 +379,7 @@ method installScripts2 Project scriptData {
     setScripts myClass (toArray scripts)
   }
 }
+
 method convert Project {
   for cl (classes) {
 	if (and (notNil (scripts cl)) ((module cl) == (topLevelModule))) {
@@ -350,7 +389,9 @@ method convert Project {
     }
   }
 }
+
 // server support
+
 method readData Project location {
   if (beginsWith location 'http://') {
     m = (loadModule 'modules/DAVDirectory.gpm')
@@ -363,6 +404,7 @@ method readData Project location {
   }
   return (readFile location true)
 }
+
 method writeData Project location data {
   if (beginsWith location 'http://') {
     m = (loadModule 'modules/DAVDirectory.gpm')
@@ -374,19 +416,23 @@ method writeData Project location data {
   }
   return (writeFile location data)
 }
+
 // media
+
 method imageNamed Project imageName {
   for img images {
 	if (imageName == (name img)) { return img }
   }
   return nil
 }
+
 method soundNamed Project sndName {
   for snd sounds {
 	if (sndName == (name snd)) { return snd }
   }
   return nil
 }
+
 method imageNames Project imageName {
   result = (list)
   for img images {
@@ -394,6 +440,7 @@ method imageNames Project imageName {
   }
   return result
 }
+
 method soundNames Project imageName {
   result = (list)
   for snd sounds {
@@ -401,9 +448,11 @@ method soundNames Project imageName {
   }
   return result
 }
+
 method saveImageAs Project bm name {
   // Add the given bitmap with given name to my images.
   // If name is nil or not a string, generate a unique name.
+  
   if (or (not (isClass name 'String')) ('' == name)) {
   	name = (uniqueNameNotIn (imageNames this) 'snapshot')
   }
@@ -412,9 +461,11 @@ method saveImageAs Project bm name {
   if (notNil oldImg) { remove images oldImg }
   add images bm
 }
+
 method saveSoundAs Project snd name {
   // Add the given sound with given name to my sounds.
   // If name is nil or not a string, generate a unique name.
+  
   if (or (not (isClass name 'String')) ('' == name)) {
   	name = (uniqueNameNotIn (soundNames this) 'sound')
   }
@@ -429,7 +480,9 @@ method saveSoundAs Project snd name {
   if (notNil oldSnd) { remove sounds oldSnd }
   add sounds snd
 }
+
 // extensions
+
 method specsForCategory Project cat {
   result = (list)
   for op (at paletteBlocks cat (array)) {
@@ -438,6 +491,7 @@ method specsForCategory Project cat {
   }
   return result
 }
+
 method exportToExtensionCategory Project block {
   if (isEmpty extraCategories) { // skip menu if no categories yet
 	selectCategoryForBlock this block 'new category...'
@@ -451,6 +505,7 @@ method exportToExtensionCategory Project block {
   addItem menu 'new category...'
   popUpAtHand menu (global 'page')
 }
+
 method selectCategoryForBlock Project block cat {
   scripter = (scripter (findProjectEditor))
   if ('new category...' == cat) {
@@ -466,6 +521,7 @@ method selectCategoryForBlock Project block cat {
   addSpecToCategory this op (blockSpec block) cat
   developerModeChanged scripter // update palette
 }
+
 method addSpecToCategory Project op spec cat {
   atPut blockSpecs op spec
   opsForCat = (at paletteBlocks cat (list))
@@ -474,14 +530,17 @@ method addSpecToCategory Project op spec cat {
 	add opsForCat op // add op to category
   }
 }
+
 method isUserDefinedBlock Project block {
   blockOp = (primName (expression block))
   return (contains blockSpecs blockOp)
 }
+
 method showingAnExtensionCategory Project {
   scripter = (scripter (findProjectEditor))
   return (contains paletteBlocks (currentCategory scripter))
 }
+
 method removeFromCurrentCategory Project block {
   scripter = (scripter (findProjectEditor))
   opsForCat = (at paletteBlocks (currentCategory scripter) (list))
@@ -489,6 +548,7 @@ method removeFromCurrentCategory Project block {
   remove opsForCat blockOp
   removeEmptyExtraCategories this
 }
+
 method blockDeleted Project op {
   remove blockSpecs op
   for opList (values paletteBlocks) {
@@ -496,6 +556,7 @@ method blockDeleted Project op {
   }
   removeEmptyExtraCategories this
 }
+
 method removeEmptyExtraCategories Project {
   for k (keys paletteBlocks) {
 	if (isEmpty (at paletteBlocks k)) {
@@ -505,8 +566,10 @@ method removeEmptyExtraCategories Project {
   }
   developerModeChanged (scripter (findProjectEditor)) // update palette
 }
+
 method importExtension Project extensionName extensionProj {
   callInitializer (module extensionProj)
+  
   // add extension block specs to this project
   extSpecs = (blockSpecs extensionProj)
   for op (keys extSpecs) {
@@ -516,6 +579,7 @@ method importExtension Project extensionName extensionProj {
 	  atPut blockSpecs op (at extSpecs op)
 	}
   }
+  
   // add extension blocks to palette
   extBlocks = (paletteBlocks extensionProj)
   for cat (keys extBlocks) {
@@ -540,6 +604,7 @@ method importExtension Project extensionName extensionProj {
 	  add extraCategories cat
 	}
   }
+  
   if (isNil dependencies) {dependencies = (list)}
   extHash = (toString (getField extensionProj 'hash'))
   depIndex = (indexOf dependencies extHash)
@@ -547,15 +612,18 @@ method importExtension Project extensionName extensionProj {
     add dependencies extHash
   }
 }
+
 method createForwarderForImportedFunction Project op extension {
   // The given op refers to a generic function in the given extensionModule.
   // Create a forwarding function that extracts the function from the extension
   // module and calls it. Return the op of the new function.
+  
   extensions = (shared 'extensions' module )
   if (isNil extensions) { // create if needed
 	extensions = (array)
 	setShared 'extensions' extensions module
   }
+  
   extensionIndex = (indexOf extensions extension)
   if (isNil extensionIndex) {
 	// add extension to the shared extensions array
@@ -563,6 +631,7 @@ method createForwarderForImportedFunction Project op extension {
 	setShared 'extensions' extensions module
 	extensionIndex = (count extensions)
   }
+  
   // create a function to call function named 'op' in an extension module
   f = (copy (function {
 	op = 'nop' // to be filled in with actual op
@@ -571,10 +640,12 @@ method createForwarderForImportedFunction Project op extension {
 	if (isNil extensions) { return }
 	extensionModule = (at extensions extensionIndex)
 	realFunction = (functionNamed op extensionModule)
+	
 	argList = (list)
 	for i (argCount) { add argList (arg i) }
 	return (callWith realFunction (toArray argList))
   }))
+  
   // modify f to fill in the op and extension index
   for b (allBlocks (cmdList f)) {
 	if (and ('=' == (primName b)) (8 == (count b))) {
@@ -583,6 +654,7 @@ method createForwarderForImportedFunction Project op extension {
 	  if ('extensionIndex' == varName) { setField b 8 extensionIndex }
 	}
   }
+  
   // find an unused name for f and save it in this project's module
   existingNames = (list op)
   for existingFunc (join (functions) (functions module)) {
