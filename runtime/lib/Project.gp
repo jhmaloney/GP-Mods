@@ -1,4 +1,4 @@
-// Project.gp - A GP project, including it's pages, media. and notes.
+// Project.gp - A GP project, including it's pages, media. and notes
 
 defineClass Project pages images sounds notes projectVars blockSpecs paletteBlocks extraCategories module hash ancestor dependencies thumbnail
 
