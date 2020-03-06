@@ -6,7 +6,8 @@ to cloudDataHost {
   if (notNil (global 'cloudDataHost')) { return (global 'cloudDataHost') }
 //  return '208.82.117.98'
 //  return '127.0.0.1'
-  return '104.236.119.50' // digial ocean
+//  return '104.236.119.50' // digial ocean
+    return '23.96.54.212'
 }
 
 to cloudDataPort { return 2002 }
