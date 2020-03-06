@@ -906,7 +906,7 @@ method showAnotherClass Scripter {
 	}
   }
   if ((count otherClasses) > 0) {
-    cls = (classNamed module (className (first otherClasses)))
+    cls = (classNamed module (first otherClasses))
     setTargetObj = (instantiate cls (stageMorph this))
   } else {
 	setTargetObj this nil
@@ -1377,6 +1377,7 @@ method updateCallsInScriptingArea Scripter op {
 	  block = (scriptForFunction func)
 	} else {
 	  block = (toBlock expr)
+	  setNext block (next each)
 	}
 	x = (left (morph each))
 	y = (top (morph each))

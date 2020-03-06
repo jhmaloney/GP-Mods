@@ -1,4 +1,4 @@
-defineClass AuthoringSpecs specsList specsByOp opCategory
+defineClass AuthoringSpecs specsList specsByOp opCategory language translationDictionary
 
 method allOpNames AuthoringSpecs {
   result = (toList (keys specsByOp))
@@ -24,6 +24,8 @@ method clear AuthoringSpecs {
   specsList = (list)
   specsByOp = (dictionary)
   opCategory = (dictionary)
+  language = 'English'
+  translationDictionary = nil
   return this
 }
 
@@ -94,7 +96,7 @@ method specForOp AuthoringSpecs op cmdOrReporter {
   }
   if (isEmpty matchingSpecs) { return nil }
   if (or ((count matchingSpecs) == 1) (isNil cmdOrReporter)) {
-	return (first matchingSpecs)
+	return (translateToCurrentLanguage this (first matchingSpecs))
   }
 
   // filter by block type
@@ -105,7 +107,7 @@ method specForOp AuthoringSpecs op cmdOrReporter {
 		add filtered s
 	}
   }
-  if ((count filtered) == 1) { return (first filtered) } // unique match
+  if ((count filtered) == 1) { return (translateToCurrentLanguage this (first filtered)) } // unique match
   if (isEmpty filtered) { filtered = matchingSpecs } // revert if no matches
 
   // filter by arg count
@@ -116,8 +118,8 @@ method specForOp AuthoringSpecs op cmdOrReporter {
 		add filtered2 s
 	}
   }
-  if ((count filtered2) > 0) { return (first filtered2) }
-  return (first filtered)
+  if ((count filtered2) > 0) { return (translateToCurrentLanguage this (first filtered2)) }
+  return (translateToCurrentLanguage this (first filtered))
 }
 
 method specsFor AuthoringSpecs category {
@@ -227,6 +229,66 @@ to fixBlockColors {
 	if (isNil textColor) { textColor = (gray 0) }
 	for m (parts (morph b)) {
 	  if (isClass (handler m) 'Text') { setColor (handler m) textColor }
+	}
+  }
+}
+
+// translation
+
+method language AuthoringSpecs { return language }
+
+method setLanguage AuthoringSpecs newLang {
+  translationData = (readEmbeddedFile (join 'translations/' newLang '.txt'))
+  if (isNil translationData) {
+	// if not embedded file, try reading external file
+	translationData = (readFile (join 'translations/' newLang '.txt'))
+  }
+  if (isNil translationData) {
+	language = 'English'
+	translationDictionary = nil
+  } else {
+	language = newLang
+	installTranslation this translationData
+  }
+}
+
+method translateToCurrentLanguage AuthoringSpecs spec {
+  if (not (needsTranslation this spec)) { return spec }
+
+  newSpecStrings = (list)
+  for s (specs spec) {
+	add newSpecStrings (at translationDictionary s s)
+  }
+  result = (clone spec)
+  setField result 'specs' newSpecStrings
+  return result
+}
+
+method needsTranslation AuthoringSpecs spec {
+  // Return true if any of the spec strings of spec needs to be translated.
+
+  if (isNil translationDictionary) { return false }
+  for s (specs spec) {
+	if (contains translationDictionary s) { return true }
+  }
+  return false
+}
+
+method installTranslation AuthoringSpecs translationData {
+  // Translations data is string consisting of three-line entries:
+  //	original string
+  //	translated string
+  //	<blank line>
+  //	...
+
+  translationDictionary = (dictionary)
+  lines = (toList (lines translationData))
+  while ((count lines) >= 2) {
+	from = (removeFirst lines)
+	to = (removeFirst lines)
+	atPut translationDictionary from to
+	while (and ((count lines) > 0) ((removeFirst lines) != '')) {
+	  // skip lines until the next blank line
 	}
   }
 }

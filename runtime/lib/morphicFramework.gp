@@ -826,17 +826,21 @@ to getNextEvent {
 method processWindowEvent Page evt {
   scale = (global 'scale')
   id = (at evt 'eventID')
-  if (id != 5) {return}
+  if (isOneOf id 5 6) {
+	// note: things can break if w or h is less than 1
+	w = (scale * (max 1 (at evt 'data1')))
+	h = (scale * (max 1 (at evt 'data2')))
 
-  // note: things can break if w or h is less than 1
-  w = (scale * (max 1 (at evt 'data1')))
-  h = (scale * (max 1 (at evt 'data2')))
-
-  clearBuffer color
-  flipBuffer
-  setPosition morph 0 0
-  setExtent morph w h
-  for each (parts morph) {pageResized (handler each) w h this}
+	clearBuffer color
+	flipBuffer
+	setPosition morph 0 0
+	setExtent morph w h
+	isChanged = true
+	for each (parts morph) {pageResized (handler each) w h this}
+  } else {
+	isChanged = true
+	for each (parts morph) {pageResized (handler each) w h this}
+  }
 }
 
 method setWindowSize Page w h {

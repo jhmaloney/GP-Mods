@@ -43,6 +43,29 @@ to pickFile anAction defaultPath extensionList saveFlag {
   }
 }
 
+// function to return the user's GP Mod folder
+
+to gpModFolder {
+  if ('iOS' == (platform)) { return '.' }
+  path = (userHomePath)
+
+  hidden = (global 'hideFolderShortcuts')
+  if (and (notNil hidden) (contains hidden 'GP Mod')) { return '/' } // if GP Mod hidden, use computer
+
+  // Look for <home>/Documents
+  if (contains (listDirectories path) 'Documents') {
+	path = (join path '/Documents')
+  }
+  if (not (contains (listDirectories path) 'GP Mod')) {
+	// create the GP Mod folder if it does not already exist
+	makeDirectory (join path '/GP Mod')
+  }
+  if (contains (listDirectories path) 'GP Mod') {
+	path = (join path '/GP Mod')
+  }
+  return path
+}
+
 // support for synchronous ("modal") calls
 
 method destroyedMorph FilePicker { isDone = true }
@@ -92,7 +115,7 @@ method initialize FilePicker anAction defaultPath extensionList saveFlag {
 
   if forSaving {
 	defaultPath = (directoryPart defaultPath)
-	if (isEmpty defaultPath) { defaultPath = (userHomePath) }
+	if (isEmpty defaultPath) { defaultPath = (gpModFolder) }
 	if ('Browser' == (platform)) { defaultPath = 'Downloads' }
   }
   if (and ((count defaultPath) > 1) (endsWith defaultPath '/')) {
@@ -148,6 +171,9 @@ method addShortcutButtons FilePicker {
   hidden = (global 'hideFolderShortcuts')
   if (isNil hidden) { hidden = (array) }
 
+  showGPMod = (and
+	(not (contains hidden 'GP Mod'))
+	('Browser' != (platform)))
   showDesktop = (not (contains hidden 'Desktop'))
   showDownloads = (and
 	(not (contains hidden 'Downloads'))
@@ -157,6 +183,10 @@ method addShortcutButtons FilePicker {
   buttonX = ((left morph) + (22 * scale))
   buttonY = ((top morph) + (55 * scale))
   dy = (60 * scale)
+  if showGPMod {
+	addIconButton this buttonX buttonY 'gpModFolderIcon' (action 'setGPModFolder' this) 'GP Mod'
+	buttonY += dy
+  }
   if (not (isOneOf (platform) 'Browser' 'iOS')) {
 	if showDesktop {
 	  addIconButton this buttonX buttonY 'desktopIcon' (action 'setDesktop' this)
@@ -219,6 +249,10 @@ method setDesktop FilePicker {
 
 method setDownloads FilePicker {
   showFolder this (join (userHomePath) '/Downloads') true
+}
+
+method setGPModFolder FilePicker {
+  showFolder this (gpModFolder) true
 }
 
 method parentFolder FilePicker {
@@ -476,6 +510,40 @@ EXOhy067usJqu8xrS4t4qairQu5BvacZToEFpDilKNnSlf+B3V/8bnCz3vrJuNV+KpihrEKAGGrMW9JK
 gEopCoUJS0uvUSGUEqhFyNEZhLU5kEKBAlkiVRBCZbQrHU5ECngMxGHlbmsEAjB/73fuB74JjPjf6TfH
 n/jxz+RyIa4Hrgc2AvF9XtiAS8BFYElYc6Fm7euby0DvpxxIQHv5+MHqX/OFuc65fm3hAAAAAElFTkSu
 QmCC'
+  return (readFrom (new 'PNGReader') (base64Decode data))
+}
+
+method gpModFolderIcon FilePickerIcons {
+  data = '
+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'
   return (readFrom (new 'PNGReader') (base64Decode data))
 }
 

@@ -461,6 +461,7 @@ method grab ScriptEditor aBlock {
 
 method scriptChanged ScriptEditor {
   scripterM = (ownerThatIsA morph 'Scripter')
+  if (isNil scripterM) { scripterM = (ownerThatIsA morph 'MicroBlocksScripter') }
   if (notNil scripterM) { scriptChanged (handler scripterM) }
 }
 

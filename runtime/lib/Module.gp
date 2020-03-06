@@ -138,6 +138,13 @@ method removeAllVariables Module {
   variables = (newArray 0)
 }
 
+method addVar Module varName {
+  if (not (contains variableNames varName)) {
+	variableNames = (copyWith variableNames varName)
+	variables = (copyWith variables 0)
+  }
+}
+
 method deleteVar Module varName {
   // Remove the variable with the given name from this module.
 

@@ -306,12 +306,13 @@ method exportAsImage BlockDefinition {
 method hideDefinition BlockDefinition {
   // Remove this method/function definition from the scripting area.
 
-  pe = (ownerThatIsA morph 'ProjectEditor')
+  pe = (findProjectEditor)
   if (isNil pe) { return }
-  scripter = (scripter (handler pe))
+  scripter = (scripter pe)
   targetClass = (targetClass scripter)
   if (isNil targetClass) { return } // shouldn't happen
 
+  saveScripts scripter
   newScripts = (list)
   for entry (scripts targetClass) {
 	cmd = (at entry 3)
