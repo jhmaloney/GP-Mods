@@ -993,7 +993,7 @@ method openClassBrowser Block className {
   if (notNil editor) {
 	cl = (classNamed (module (project (handler editor))) className)
   }
-  if (isNil cl) { cl = (class className) }
+  if (isNil cl) { cl =  className }
   browseClass cl (primName expression)
 }
 
