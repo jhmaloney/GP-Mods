@@ -1,6 +1,6 @@
 # GP-CommunityEdition
 
-The GP Blocks programming system forked and developed by the community.
+The GP Blocks programming system forked and improved by the community.
 
 GP is a "general purpose" blocks programming system similar to Scratch, but
 with  extended features such as the ability to work with pixel and sound data,
