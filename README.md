@@ -66,6 +66,9 @@ go - restart the user interface
 The Wiki on this repository will eventually include articles explaining how GP works,
 how it loads the entire system from "runtime/lib" when it starts, and how to make changes.
 
+## Discord
+On discord you can join us to talk about GP, suggest features, ask for help and more: https://discord.gg/vUprKx4 
+
 ## User Forum
 
 Ask questions and share what you've created with others on the "GP Mods" section of the
