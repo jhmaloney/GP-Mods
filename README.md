@@ -7,13 +7,6 @@ with  extended features such as the ability to work with pixel and sound data,
 process data, or build games and applications. What's more, GP can turn anything
 you build into an application.
 
-## Creating a Mod
-
-To make your own GP mod, first create a (free!) Github account if you don't already have one.
-Then click the "Fork" button in the top-right corner of this repository. That will create
-your own fork on Github. If you wish, rename your fork by clicking on the "Settings"
-tab in your fork. Finally, clone your repository on your own computer and start modding!
-
 ## How GP Works
 
 GP runs on a virtual machine (VM) that includes a parser for the textual version of GP,
@@ -73,12 +66,8 @@ GP Forum (http://gpblocks.org/forum). Unfortunately, due to a constant barrage o
 creating accounts, we had to disable automatic account creation; just drop an email to
 "gpteam" at gpblocks.org.
 
-## Based on GP...
-
-To avoid potential confusion with the original GP, which is used by students and educators
-around the world, your mod should be named something other than simply "GP" or "GP Blocks,
-and it should avoid displaying the original GP logo. You are  welcome to use the "GP Mod"
-logo and encouraged to use the phrase "Based on GP" in your mod's title or about box.
+## Discord
+On discord you can join us to talk about GP, suggest features, ask for help and more: https://discord.gg/vUprKx4 
 
 ## License
 
