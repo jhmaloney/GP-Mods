@@ -39,7 +39,7 @@ to openProjectEditor tryRetina devMode presentFlag {
   if (and ('Browser' == (platform)) (browserIsMobile)) {
 	page = (newPage 1024 640)
   } else {
-	page = (newPage 1120 700)
+	page = (newPage 1280 720)
   }
   setDevMode page devMode
   setGlobal 'page' page
@@ -72,12 +72,12 @@ method initialize ProjectEditor aProject {
   scale = (global 'scale')
   morph = (newMorph this)
   project = aProject
-  viewerWidth = ((width (global 'page')) - (800 * scale))
+  viewerWidth = ((width (global 'page')) - (900 * scale))
   viewerWidth = (max viewerWidth (235 * scale))
   addTopBarParts this
   scripter = (initialize (new 'Scripter') this)
   addPart morph (morph scripter)
-  stage = (newStage 16 10)
+  stage = (newStage 16 9)
   addPart morph (morph stage)
   library = (initialize (new 'SpriteLibrary') scripter)
   addPart morph (morph library)
