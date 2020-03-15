@@ -39,10 +39,10 @@ method initialize Stage w h {
 }
 
 method setAspectRatio Stage w h {
-  majorAxis = 800
+  majorAxis = 900
   if (or (isNil w) (isNil h)) {
 	w = 16
-	h = 10
+	h = 9
   }
   if (w > h) {
 	newW = majorAxis
